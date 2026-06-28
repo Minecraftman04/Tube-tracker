@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>London Tube Live Map</title>
+  <meta name="description" content="£0 London Tube real-time tracker map for GitHub Pages using TfL Open Data and Leaflet." />
+
+  <!-- Leaflet is free/open-source. Map tiles are OpenStreetMap tiles with attribution. -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: rgba(8, 18, 33, 0.94);
+      --panel2: rgba(12, 25, 45, 0.94);
+      --line: rgba(255,255,255,0.11);
+      --text: #ecf5ff;
+      --muted: #9db2c9;
+      --good: #10b981;
+      --bad: #fb7185;
+      --warn: #fbbf24;
+      --blue: #38bdf8;
+      --shadow: 0 20px 60px rgba(0,0,0,0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #app {
+      position: relative;
+      height: 100%;
+      width: 100%;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      background: #0a1320;
+    }
+
+    .glass {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    #topbar {
+      position: absolute;
+      z-index: 1000;
+      left: 14px;
+      right: 14px;
+      top: 14px;
+      display: grid;
+      grid-template-columns: minmax(260px, 430px) 1fr auto;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .title-card, .search-card, .key-card {
+      pointer-events: auto;
+      border-radius: var(--radius);
+    }
+
+    .title-card {
+      padding: 14px 16px;
+      min-width: 260px;
+    }
+
+    .title {
+      margin: 0 0 2px 0;
+      font-size: 18px;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      font-weight: 800;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .search-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 10px;
+      align-items: center;
+    }
+
+    input, select, button {
+      font: inherit;
+    }
+
+    input[type="search"], input[type="text"], input[type="password"] {
+      width: 100%;
+      color: var(--text);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      outline: none;
+      border-radius: 12px;
+      padding: 11px 12px;
+    }
+
+    input::placeholder { color: #7d91a9; }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 13px;
+      color: var(--text);
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      background: rgba(255,255,255,0.16);
+      border-color: rgba(255,255,255,0.22);
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, rgba(56,189,248,0.28), rgba(99,102,241,0.22));
+      border-color: rgba(56,189,248,0.34);
+    }
+
+    button.danger {
+      background: rgba(251,113,133,0.12);
+      border-color: rgba(251,113,133,0.26);
+    }
+
+    .key-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      min-width: 260px;
+    }
+
+    .key-card input { max-width: 210px; }
+
+    #sidebar {
+      position: absolute;
+      z-index: 990;
+      top: 98px;
+      left: 14px;
+      width: 390px;
+      max-width: calc(100vw - 28px);
+      max-height: calc(100vh - 112px);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    #sidebarHeader {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+    }
+
+    #content {
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .section {
+      margin-bottom: 14px;
+    }
+
+    .section h2 {
+      margin: 0 0 9px 0;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #b7c8dc;
+    }
+
+    .line-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .line-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 10px;
+      text-align: left;
+      border-radius: 13px;
+      background: rgba(255,255,255,0.065);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .line-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 99px;
+      border: 2px solid rgba(255,255,255,0.7);
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.22);
+    }
+
+    .line-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .status-pill {
+      font-size: 10px;
+      color: #cfe0f4;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 3px 6px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    .station-list, .arrival-list, .fav-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .station-row, .arrival-row, .fav-row, .info-box {
+      padding: 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .station-row, .fav-row {
+      cursor: pointer;
+    }
+
+    .row-title {
+      font-weight: 800;
+      font-size: 13px;
+      margin: 0 0 3px 0;
+    }
+
+    .row-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0;
+      line-height: 1.35;
+    }
+
+    .arrival-row {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .eta {
+      text-align: center;
+      font-weight: 900;
+      font-size: 20px;
+      line-height: 1;
+      color: white;
+    }
+
+    .eta span {
+      display: block;
+      font-weight: 700;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .small-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #floatingActions {
+      position: absolute;
+      right: 14px;
+      bottom: 24px;
+      z-index: 990;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    #toast {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 24px;
+      z-index: 1200;
+      max-width: min(620px, calc(100vw - 28px));
+      padding: 11px 14px;
+      border-radius: 999px;
+      background: rgba(2,8,23,0.95);
+      border: 1px solid rgba(255,255,255,0.13);
+      color: #eaf3ff;
+      box-shadow: var(--shadow);
+      display: none;
+      font-size: 13px;
+    }
+
+    .station-marker {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: white;
+      border: 3px solid #111827;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.65), 0 8px 20px rgba(0,0,0,0.35);
+    }
+
+    .station-marker.selected {
+      width: 20px;
+      height: 20px;
+      background: #38bdf8;
+      border-color: white;
+      box-shadow: 0 0 0 4px rgba(56,189,248,0.28), 0 8px 24px rgba(0,0,0,0.45);
+    }
+
+    .train-marker {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid white;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.16), 0 10px 24px rgba(0,0,0,0.45);
+      animation: pulse 1.25s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.18); opacity: 0.72; }
+    }
+
+
+    .leaflet-control-layers {
+      border-radius: 14px !important;
+      background: rgba(8, 18, 33, 0.94) !important;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.13) !important;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .leaflet-control-layers-expanded {
+      padding: 9px 11px;
+    }
+
+    .leaflet-control-layers label {
+      margin: 4px 0;
+      font-size: 13px;
+    }
+
+    .leaflet-control-layers-selector {
+      accent-color: #38bdf8;
+    }
+
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: #07111f;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .leaflet-popup-content {
+      margin: 12px;
+      min-width: 220px;
+    }
+
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.84) !important;
+    }
+
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+
+    @media (max-width: 900px) {
+      #topbar {
+        grid-template-columns: 1fr;
+      }
+      .key-card {
+        min-width: 0;
+      }
+      #sidebar {
+        top: 216px;
+        width: calc(100vw - 28px);
+        max-height: calc(100vh - 230px);
+      }
+      #floatingActions {
+        bottom: 14px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .line-grid {
+        grid-template-columns: 1fr;
+      }
+      .key-card {
+        display: grid;
+        grid-template-columns: 1fr auto;
+      }
+      .title-card {
+        padding: 12px;
+      }
+      #sidebar {
+        top: 232px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <div id="topbar">
+    <div class="title-card glass">
+      <h1 class="title">London Tube Live Map</h1>
+      <p class="sub">Free static GitHub Pages app using TfL Open Data. Switch between street and satellite map layers. Prediction dots show the next station prediction, not exact train GPS.</p>
+    </div>
+
+    <div class="search-card glass">
+      <input id="stationSearch" type="search" placeholder="Search a Tube station, e.g. King's Cross, Oxford Circus..." autocomplete="off" />
+      <button id="clearSearch" title="Clear search">Clear</button>
+    </div>
+
+    <div class="key-card glass">
+      <input id="apiKey" type="password" placeholder="Optional TfL app_key" autocomplete="off" />
+      <button id="saveKey" class="primary">Save key</button>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="glass">
+    <div id="sidebarHeader">
+      <div class="row-title">Live controls</div>
+      <p class="row-sub" id="lastUpdated">Loading TfL data…</p>
+    </div>
+
+    <div id="content">
+      <div class="section">
+        <h2>Lines</h2>
+        <div class="line-grid" id="lineGrid"></div>
+        <div class="small-actions">
+          <button id="drawAll">Draw all lines</button>
+          <button id="clearLive" class="danger">Clear live dots</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Selected station</h2>
+        <div id="selectedStation" class="info-box">
+          <p class="row-title">No station selected</p>
+          <p class="row-sub">Click a station marker or search above to view live arrivals.</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Arrivals</h2>
+        <div id="arrivals" class="arrival-list">
+          <div class="info-box"><p class="row-sub">Select a station first.</p></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Favourites</h2>
+        <div id="favourites" class="fav-list"></div>
+      </div>
+
+      <div class="section">
+        <h2>Search results</h2>
+        <div id="searchResults" class="station-list">
+          <div class="info-box"><p class="row-sub">Search for a station to jump to it.</p></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="floatingActions">
+    <button id="locateMe" class="glass">Locate me</button>
+    <button id="fitLondon" class="glass">Fit London</button>
+    <button id="togglePanel" class="glass">Hide panel</button>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const TFL_BASE = "https://api.tfl.gov.uk";
+  const CACHE_VERSION = "tube-live-map-v1";
+  const ROUTE_CACHE_HOURS = 24 * 7;
+  const ARRIVALS_REFRESH_MS = 30_000;
+  const STATUS_REFRESH_MS = 60_000;
+
+  const TUBE_LINES = [
+    { id: "bakerloo", name: "Bakerloo", color: "#B36305" },
+    { id: "central", name: "Central", color: "#E32017" },
+    { id: "circle", name: "Circle", color: "#FFD300", text: "#111827" },
+    { id: "district", name: "District", color: "#00782A" },
+    { id: "hammersmith-city", name: "Hammersmith & City", color: "#F3A9BB", text: "#111827" },
+    { id: "jubilee", name: "Jubilee", color: "#A0A5A9", text: "#111827" },
+    { id: "metropolitan", name: "Metropolitan", color: "#9B0056" },
+    { id: "northern", name: "Northern", color: "#000000" },
+    { id: "piccadilly", name: "Piccadilly", color: "#003688" },
+    { id: "victoria", name: "Victoria", color: "#0098D4" },
+    { id: "waterloo-city", name: "Waterloo & City", color: "#95CDBA", text: "#111827" }
+  ];
+
+  const byLine = Object.fromEntries(TUBE_LINES.map(l => [l.id, l]));
+
+  const state = {
+    apiKey: localStorage.getItem("tflAppKey") || "",
+    statuses: new Map(),
+    stations: new Map(),
+    markers: new Map(),
+    lineLayers: new Map(),
+    activeLiveLine: null,
+    liveTimer: null,
+    arrivalsTimer: null,
+    selectedStation: null,
+    selectedMarker: null,
+    drawnLines: new Set(),
+    busy: false
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  const map = L.map("map", {
+    zoomControl: false,
+    preferCanvas: true,
+    minZoom: 8
+  }).setView([51.5074, -0.1278], 11);
+
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+
+  const streetLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom: 19,
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+  });
+
+  const baseMaps = {
+    "Street map": streetLayer,
+    "Satellite": satelliteLayer
+  };
+
+  L.control.layers(baseMaps, null, {
+    position: "bottomleft",
+    collapsed: false
+  }).addTo(map);
+
+  const routePane = map.createPane("routes");
+  routePane.style.zIndex = 410;
+  const stationPane = map.createPane("stations");
+  stationPane.style.zIndex = 430;
+  const trainPane = map.createPane("trains");
+  trainPane.style.zIndex = 460;
+
+  const routeLayer = L.layerGroup().addTo(map);
+  const stationLayer = L.layerGroup().addTo(map);
+  const trainLayer = L.layerGroup().addTo(map);
+
+  function toast(message, ms = 3600) {
+    const el = $("toast");
+    el.textContent = message;
+    el.style.display = "block";
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { el.style.display = "none"; }, ms);
+  }
+
+  function setUpdated(text) {
+    $("lastUpdated").textContent = text;
+  }
+
+  function buildUrl(path, params = {}) {
+    const url = new URL(`${TFL_BASE}/${path.replace(/^\/+/, "")}`);
+    const key = state.apiKey || localStorage.getItem("tflAppKey") || "";
+    if (key) url.searchParams.set("app_key", key);
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
+    }
+    return url.toString();
+  }
+
+  async function tflFetch(path, params = {}) {
+    const res = await fetch(buildUrl(path, params), {
+      headers: { "Accept": "application/json" },
+      cache: "no-store"
+    });
+
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const data = await res.json();
+        detail = data.message || data.Message || JSON.stringify(data).slice(0, 140);
+      } catch {}
+      throw new Error(`TfL API ${res.status}: ${detail || res.statusText}`);
+    }
+    return res.json();
+  }
+
+  function getCache(key) {
+    try {
+      const raw = localStorage.getItem(`${CACHE_VERSION}:${key}`);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (Date.now() - data.time > ROUTE_CACHE_HOURS * 3600_000) return null;
+      return data.value;
+    } catch {
+      return null;
+    }
+  }
+
+  function setCache(key, value) {
+    try {
+      localStorage.setItem(`${CACHE_VERSION}:${key}`, JSON.stringify({ time: Date.now(), value }));
+    } catch {
+      // Local storage may be full or blocked. The app can continue without caching.
+    }
+  }
+
+  function lineStatusClass(text) {
+    const t = String(text || "").toLowerCase();
+    if (t.includes("good")) return "good";
+    if (t.includes("minor") || t.includes("part") || t.includes("reduced")) return "warn";
+    if (t.includes("severe") || t.includes("suspended") || t.includes("closed") || t.includes("special")) return "bad";
+    return "";
+  }
+
+  function renderLineGrid() {
+    const grid = $("lineGrid");
+    grid.innerHTML = "";
+
+    TUBE_LINES.forEach(line => {
+      const status = state.statuses.get(line.id);
+      const statusText = status?.label || "Status…";
+      const btn = document.createElement("button");
+      btn.className = "line-btn";
+      btn.title = `Draw ${line.name} line and load live prediction dots`;
+      btn.innerHTML = `
+        <span class="line-left">
+          <span class="swatch" style="background:${line.color};"></span>
+          <span class="line-name">${line.name}</span>
+        </span>
+        <span class="status-pill ${lineStatusClass(statusText)}">${escapeHtml(statusText)}</span>
+      `;
+      btn.addEventListener("click", () => selectLine(line.id));
+      grid.appendChild(btn);
+    });
+  }
+
+  async function loadStatuses() {
+    try {
+      const data = await tflFetch("Line/Mode/tube/Status", { detail: "true" });
+      state.statuses.clear();
+
+      for (const line of data || []) {
+        const st = (line.lineStatuses || [])[0] || {};
+        state.statuses.set(line.id, {
+          label: st.statusSeverityDescription || "Unknown",
+          reason: st.reason || ""
+        });
+      }
+
+      renderLineGrid();
+      setUpdated(`Live TfL status loaded ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+    } catch (err) {
+      console.error(err);
+      setUpdated("Could not load TfL status. Add a free app_key if the API blocks anonymous requests.");
+      toast(err.message);
+      renderLineGrid();
+    }
+  }
+
+  async function loadRouteSequence(lineId) {
+    const cached = getCache(`route:${lineId}`);
+    if (cached) return cached;
+
+    try {
+      const seq = await tflFetch(`Line/${lineId}/Route/Sequence/all`, {
+        serviceTypes: "Regular",
+        excludeCrowding: "true"
+      });
+      setCache(`route:${lineId}`, seq);
+      return seq;
+    } catch (firstErr) {
+      console.warn("Sequence/all failed, trying outbound/inbound", firstErr);
+      const [outbound, inbound] = await Promise.allSettled([
+        tflFetch(`Line/${lineId}/Route/Sequence/outbound`, { serviceTypes: "Regular", excludeCrowding: "true" }),
+        tflFetch(`Line/${lineId}/Route/Sequence/inbound`, { serviceTypes: "Regular", excludeCrowding: "true" })
+      ]);
+
+      const merged = {
+        lineId,
+        lineName: byLine[lineId]?.name || lineId,
+        lineStrings: [],
+        stopPointSequences: [],
+        stations: []
+      };
+
+      for (const result of [outbound, inbound]) {
+        if (result.status === "fulfilled" && result.value) {
+          merged.lineStrings.push(...(result.value.lineStrings || []));
+          merged.stopPointSequences.push(...(result.value.stopPointSequences || []));
+          merged.stations.push(...(result.value.stations || []));
+        }
+      }
+
+      if (!merged.lineStrings.length && !merged.stopPointSequences.length) {
+        throw firstErr;
+      }
+
+      setCache(`route:${lineId}`, merged);
+      return merged;
+    }
+  }
+
+  function parseLineStrings(lineStrings) {
+    const paths = [];
+
+    for (const raw of lineStrings || []) {
+      let data = raw;
+      if (typeof data === "string") {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          continue;
+        }
+      }
+      flattenCoordinateGroups(data, paths);
+    }
+
+    return paths;
+  }
+
+  function flattenCoordinateGroups(data, out) {
+    if (!Array.isArray(data)) return;
+
+    // A single coordinate pair from TfL is [lon, lat].
+    if (
+      data.length >= 2 &&
+      typeof data[0] === "number" &&
+      typeof data[1] === "number"
+    ) {
+      return [data[1], data[0]];
+    }
+
+    // A list of coordinate pairs.
+    if (
+      data.length &&
+      Array.isArray(data[0]) &&
+      typeof data[0][0] === "number" &&
+      typeof data[0][1] === "number"
+    ) {
+      const path = data
+        .map(pair => Array.isArray(pair) ? [pair[1], pair[0]] : null)
+        .filter(Boolean);
+      if (path.length > 1) out.push(path);
+      return;
+    }
+
+    for (const item of data) flattenCoordinateGroups(item, out);
+  }
+
+  function collectStations(seq, lineId) {
+    const line = byLine[lineId];
+
+    const upsert = (stop) => {
+      const id = stop.stationId || stop.naptanId || stop.id;
+      const lat = Number(stop.lat);
+      const lon = Number(stop.lon);
+      if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+      const name = cleanStationName(stop.name || stop.commonName || id);
+      const existing = state.stations.get(id) || {
+        id, name, lat, lon, lines: new Map()
+      };
+      existing.lines.set(lineId, line?.name || lineId);
+      // Prefer coordinates from stop sequences because they are usually the actual stop/station points.
+      existing.lat = lat;
+      existing.lon = lon;
+      state.stations.set(id, existing);
+    };
+
+    for (const branch of seq.stopPointSequences || []) {
+      for (const stop of branch.stopPoint || []) upsert(stop);
+    }
+
+    for (const stop of seq.stations || []) upsert(stop);
+  }
+
+  function cleanStationName(name) {
+    return String(name || "")
+      .replace(/\s+Underground Station$/i, "")
+      .replace(/\s+DLR Station$/i, "")
+      .replace(/\s+Rail Station$/i, "")
+      .trim();
+  }
+
+  function drawStations() {
+    stationLayer.clearLayers();
+
+    for (const station of state.stations.values()) {
+      const marker = L.marker([station.lat, station.lon], {
+        pane: "stations",
+        icon: makeStationIcon(false),
+        title: station.name
+      });
+
+      marker.on("click", () => selectStation(station.id, { fly: false }));
+      marker.bindTooltip(station.name, { direction: "top", opacity: 0.92 });
+
+      state.markers.set(station.id, marker);
+      marker.addTo(stationLayer);
+    }
+
+    renderFavourites();
+  }
+
+  function makeStationIcon(selected = false) {
+    return L.divIcon({
+      className: "",
+      html: `<div class="station-marker ${selected ? "selected" : ""}"></div>`,
+      iconSize: selected ? [20, 20] : [14, 14],
+      iconAnchor: selected ? [10, 10] : [7, 7]
+    });
+  }
+
+  function makeTrainIcon(lineId) {
+    const line = byLine[lineId] || {};
+    return L.divIcon({
+      className: "",
+      html: `<div class="train-marker" style="background:${line.color || "#38bdf8"}"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+  }
+
+  function drawRoutes(seq, lineId) {
+    const line = byLine[lineId];
+    const paths = parseLineStrings(seq.lineStrings);
+    const group = L.layerGroup();
+
+    if (paths.length) {
+      const seen = new Set();
+      for (const path of paths) {
+        const signature = path.slice(0, 3).concat(path.slice(-3)).map(p => p.map(v => v.toFixed(5)).join(",")).join("|");
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+
+        L.polyline(path, {
+          pane: "routes",
+          color: line.color,
+          weight: 6,
+          opacity: 0.86,
+          smoothFactor: 1.5,
+          lineJoin: "round",
+          lineCap: "round"
+        }).bindTooltip(line.name).addTo(group);
+
+        L.polyline(path, {
+          pane: "routes",
+          color: "#ffffff",
+          weight: 2,
+          opacity: 0.38,
+          smoothFactor: 1.5,
+          lineJoin: "round",
+          lineCap: "round"
+        }).addTo(group);
+      }
+    } else {
+      // Fallback: draw an approximate route by joining station sequence points.
+      for (const branch of seq.stopPointSequences || []) {
+        const pts = (branch.stopPoint || [])
+          .map(s => [Number(s.lat), Number(s.lon)])
+          .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
+        if (pts.length > 1) {
+          L.polyline(pts, {
+            pane: "routes",
+            color: line.color,
+            weight: 5,
+            opacity: 0.72,
+            smoothFactor: 1.2
+          }).bindTooltip(`${line.name} approximate station sequence`).addTo(group);
+        }
+      }
+    }
+
+    group.addTo(routeLayer);
+    state.lineLayers.set(lineId, group);
+  }
+
+  async function ensureLineDrawn(lineId) {
+    if (state.drawnLines.has(lineId)) return;
+    const seq = await loadRouteSequence(lineId);
+    drawRoutes(seq, lineId);
+    collectStations(seq, lineId);
+    drawStations();
+    state.drawnLines.add(lineId);
+  }
+
+  async function selectLine(lineId) {
+    try {
+      toast(`Loading ${byLine[lineId]?.name || lineId} line…`);
+      await ensureLineDrawn(lineId);
+      await loadLiveLine(lineId);
+      const group = state.lineLayers.get(lineId);
+      if (group) map.fitBounds(group.getBounds(), { padding: [45, 45], maxZoom: 13 });
+    } catch (err) {
+      console.error(err);
+      toast(`Could not load ${lineId}: ${err.message}`, 5200);
+    }
+  }
+
+  async function drawAllLines() {
+    if (state.busy) return;
+    state.busy = true;
+    $("drawAll").textContent = "Drawing…";
+    try {
+      for (const line of TUBE_LINES) {
+        await ensureLineDrawn(line.id);
+      }
+      fitLondon();
+      toast("All Tube lines drawn. Click a line to load live prediction dots.");
+    } catch (err) {
+      console.error(err);
+      toast(err.message, 5200);
+    } finally {
+      state.busy = false;
+      $("drawAll").textContent = "Draw all lines";
+    }
+  }
+
+  function fitLondon() {
+    const bounds = L.latLngBounds([[51.27, -0.55], [51.72, 0.33]]);
+    map.fitBounds(bounds, { padding: [20, 20] });
+  }
+
+  function stationLinesText(station) {
+    return Array.from(station.lines.values()).sort().join(", ");
+  }
+
+  function renderStationCard(station) {
+    const favs = getFavourites();
+    const isFav = favs.includes(station.id);
+    const statusBits = Array.from(station.lines.keys())
+      .map(id => {
+        const st = state.statuses.get(id);
+        if (!st) return null;
+        return `${byLine[id]?.name || id}: ${st.label}`;
+      })
+      .filter(Boolean)
+      .join(" · ");
+
+    $("selectedStation").innerHTML = `
+      <p class="row-title">${escapeHtml(station.name)}</p>
+      <p class="row-sub">${escapeHtml(stationLinesText(station) || "Tube station")}</p>
+      ${statusBits ? `<p class="row-sub">${escapeHtml(statusBits)}</p>` : ""}
+      <div class="small-actions">
+        <button id="refreshArrivals" class="primary">Refresh arrivals</button>
+        <button id="toggleFavourite">${isFav ? "Remove favourite" : "Add favourite"}</button>
+      </div>
+    `;
+
+    $("refreshArrivals").addEventListener("click", () => loadStationArrivals(station.id));
+    $("toggleFavourite").addEventListener("click", () => toggleFavourite(station.id));
+  }
+
+  async function selectStation(stationId, opts = {}) {
+    const station = state.stations.get(stationId);
+    if (!station) return;
+
+    if (state.selectedMarker) {
+      state.selectedMarker.setIcon(makeStationIcon(false));
+    }
+
+    state.selectedStation = station;
+    const marker = state.markers.get(stationId);
+    if (marker) {
+      marker.setIcon(makeStationIcon(true));
+      state.selectedMarker = marker;
+      if (opts.fly !== false) map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 14), { duration: 0.65 });
+      marker.openPopup();
+    }
+
+    renderStationCard(station);
+    await loadStationArrivals(station.id);
+
+    clearInterval(state.arrivalsTimer);
+    state.arrivalsTimer = setInterval(() => {
+      if (state.selectedStation?.id) loadStationArrivals(state.selectedStation.id, { quiet: true });
+    }, ARRIVALS_REFRESH_MS);
+  }
+
+  async function loadStationArrivals(stationId, opts = {}) {
+    const station = state.stations.get(stationId);
+    if (!station) return;
+    if (!opts.quiet) $("arrivals").innerHTML = `<div class="info-box"><p class="row-sub">Loading arrivals for ${escapeHtml(station.name)}…</p></div>`;
+
+    try {
+      const data = await tflFetch(`StopPoint/${stationId}/Arrivals`);
+      const tubeArrivals = (data || [])
+        .filter(a => station.lines.has(a.lineId) || byLine[a.lineId])
+        .sort((a, b) => Number(a.timeToStation || 0) - Number(b.timeToStation || 0))
+        .slice(0, 18);
+
+      renderArrivals(tubeArrivals);
+      const marker = state.markers.get(stationId);
+      if (marker) {
+        marker.bindPopup(`
+          <strong>${escapeHtml(station.name)}</strong><br>
+          <span style="color:#9db2c9">${tubeArrivals.length ? `${tubeArrivals.length} live arrivals` : "No live Tube arrivals returned"}</span>
+        `);
+      }
+    } catch (err) {
+      console.error(err);
+      $("arrivals").innerHTML = `<div class="info-box"><p class="row-sub bad">${escapeHtml(err.message)}</p></div>`;
+    }
+  }
+
+  function renderArrivals(arrivals) {
+    const box = $("arrivals");
+
+    if (!arrivals.length) {
+      box.innerHTML = `<div class="info-box"><p class="row-sub">No live Tube arrivals returned right now. This can happen during closures, overnight, or API gaps.</p></div>`;
+      return;
+    }
+
+    box.innerHTML = "";
+    for (const a of arrivals) {
+      const mins = Math.max(0, Math.round(Number(a.timeToStation || 0) / 60));
+      const line = byLine[a.lineId] || { name: a.lineName || a.lineId, color: "#38bdf8" };
+      const row = document.createElement("div");
+      row.className = "arrival-row";
+      row.innerHTML = `
+        <div class="eta" style="color:${line.color}">${mins}<span>min</span></div>
+        <div>
+          <p class="row-title">${escapeHtml(line.name)} to ${escapeHtml(a.destinationName || "Unknown destination")}</p>
+          <p class="row-sub">${escapeHtml(a.platformName || a.direction || "")}${a.currentLocation ? " · " + escapeHtml(a.currentLocation) : ""}</p>
+        </div>
+      `;
+      box.appendChild(row);
+    }
+  }
+
+  async function loadLiveLine(lineId) {
+    state.activeLiveLine = lineId;
+    trainLayer.clearLayers();
+    clearInterval(state.liveTimer);
+
+    try {
+      const data = await tflFetch(`Line/${lineId}/Arrivals`);
+      renderLivePredictions(lineId, data || []);
+      state.liveTimer = setInterval(() => {
+        if (state.activeLiveLine) refreshLiveLine(state.activeLiveLine);
+      }, ARRIVALS_REFRESH_MS);
+    } catch (err) {
+      console.error(err);
+      toast(`Live predictions failed: ${err.message}`, 5200);
+    }
+  }
+
+  async function refreshLiveLine(lineId) {
+    try {
+      const data = await tflFetch(`Line/${lineId}/Arrivals`);
+      renderLivePredictions(lineId, data || [], true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function renderLivePredictions(lineId, arrivals) {
+    trainLayer.clearLayers();
+
+    const line = byLine[lineId] || {};
+    const byVehicle = new Map();
+
+    for (const a of arrivals) {
+      const vehicleKey = a.vehicleId || `${a.lineId}:${a.destinationNaptanId || a.destinationName}:${a.naptanId}:${a.platformName}`;
+      const existing = byVehicle.get(vehicleKey);
+      if (!existing || Number(a.timeToStation) < Number(existing.timeToStation)) {
+        byVehicle.set(vehicleKey, a);
+      }
+    }
+
+    const chosen = Array.from(byVehicle.values())
+      .filter(a => Number.isFinite(Number(a.timeToStation)))
+      .sort((a, b) => Number(a.timeToStation) - Number(b.timeToStation))
+      .slice(0, 80);
+
+    for (const a of chosen) {
+      const station = state.stations.get(a.naptanId) || findStationByName(a.stationName);
+      if (!station) continue;
+
+      const mins = Math.max(0, Math.round(Number(a.timeToStation || 0) / 60));
+      const marker = L.marker([station.lat, station.lon], {
+        pane: "trains",
+        icon: makeTrainIcon(lineId),
+        title: `${line.name || a.lineName} prediction: ${mins} min`
+      });
+
+      marker.bindPopup(`
+        <strong>${escapeHtml(line.name || a.lineName || lineId)} prediction</strong><br>
+        ${escapeHtml(a.stationName || station.name)} in <strong>${mins} min</strong><br>
+        <span style="color:#9db2c9">${escapeHtml(a.destinationName || "")}</span><br>
+        <span style="color:#9db2c9">${escapeHtml(a.currentLocation || "Prediction is placed at its next predicted station.")}</span>
+      `);
+
+      marker.addTo(trainLayer);
+    }
+
+    toast(`${line.name || lineId}: ${chosen.length} live prediction dots loaded`);
+  }
+
+  function findStationByName(name) {
+    if (!name) return null;
+    const cleaned = cleanStationName(name).toLowerCase();
+    for (const station of state.stations.values()) {
+      if (station.name.toLowerCase() === cleaned) return station;
+    }
+    return null;
+  }
+
+  function getFavourites() {
+    try {
+      return JSON.parse(localStorage.getItem("tubeFavs") || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function setFavourites(ids) {
+    localStorage.setItem("tubeFavs", JSON.stringify(Array.from(new Set(ids))));
+  }
+
+  function toggleFavourite(stationId) {
+    const favs = getFavourites();
+    const i = favs.indexOf(stationId);
+    if (i >= 0) favs.splice(i, 1);
+    else favs.push(stationId);
+    setFavourites(favs);
+    if (state.selectedStation?.id === stationId) renderStationCard(state.selectedStation);
+    renderFavourites();
+  }
+
+  function renderFavourites() {
+    const favBox = $("favourites");
+    const favs = getFavourites().map(id => state.stations.get(id)).filter(Boolean);
+
+    if (!favs.length) {
+      favBox.innerHTML = `<div class="info-box"><p class="row-sub">No favourites yet. Select a station and press “Add favourite”.</p></div>`;
+      return;
+    }
+
+    favBox.innerHTML = "";
+    for (const station of favs.sort((a, b) => a.name.localeCompare(b.name))) {
+      const row = document.createElement("div");
+      row.className = "fav-row";
+      row.innerHTML = `
+        <p class="row-title">${escapeHtml(station.name)}</p>
+        <p class="row-sub">${escapeHtml(stationLinesText(station))}</p>
+      `;
+      row.addEventListener("click", () => selectStation(station.id));
+      favBox.appendChild(row);
+    }
+  }
+
+  function renderSearchResults(query = "") {
+    const box = $("searchResults");
+    const q = query.trim().toLowerCase();
+
+    if (!q) {
+      box.innerHTML = `<div class="info-box"><p class="row-sub">Search for a station to jump to it.</p></div>`;
+      return;
+    }
+
+    const results = Array.from(state.stations.values())
+      .filter(station => station.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 20);
+
+    if (!results.length) {
+      box.innerHTML = `<div class="info-box"><p class="row-sub">No loaded stations match. Press “Draw all lines” first if the map has not finished loading routes.</p></div>`;
+      return;
+    }
+
+    box.innerHTML = "";
+    for (const station of results) {
+      const row = document.createElement("div");
+      row.className = "station-row";
+      row.innerHTML = `
+        <p class="row-title">${escapeHtml(station.name)}</p>
+        <p class="row-sub">${escapeHtml(stationLinesText(station))}</p>
+      `;
+      row.addEventListener("click", () => selectStation(station.id));
+      box.appendChild(row);
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function wireEvents() {
+    $("apiKey").value = state.apiKey;
+    $("saveKey").addEventListener("click", () => {
+      state.apiKey = $("apiKey").value.trim();
+      if (state.apiKey) {
+        localStorage.setItem("tflAppKey", state.apiKey);
+        toast("TfL app_key saved in this browser.");
+      } else {
+        localStorage.removeItem("tflAppKey");
+        toast("TfL app_key removed. The app will try anonymous TfL requests.");
+      }
+      loadStatuses();
+    });
+
+    $("drawAll").addEventListener("click", drawAllLines);
+    $("clearLive").addEventListener("click", () => {
+      state.activeLiveLine = null;
+      clearInterval(state.liveTimer);
+      trainLayer.clearLayers();
+      toast("Live prediction dots cleared.");
+    });
+
+    $("fitLondon").addEventListener("click", fitLondon);
+
+    $("locateMe").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        toast("Geolocation is not supported in this browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => map.flyTo([pos.coords.latitude, pos.coords.longitude], 14),
+        err => toast(err.message || "Could not get your location.")
+      );
+    });
+
+    $("togglePanel").addEventListener("click", () => {
+      const sidebar = $("sidebar");
+      sidebar.classList.toggle("hidden");
+      $("togglePanel").textContent = sidebar.classList.contains("hidden") ? "Show panel" : "Hide panel";
+      setTimeout(() => map.invalidateSize(), 180);
+    });
+
+    $("stationSearch").addEventListener("input", (e) => {
+      renderSearchResults(e.target.value);
+    });
+
+    $("stationSearch").addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const q = e.target.value.trim().toLowerCase();
+      const first = Array.from(state.stations.values())
+        .filter(station => station.name.toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name))[0];
+      if (first) selectStation(first.id);
+    });
+
+    $("clearSearch").addEventListener("click", () => {
+      $("stationSearch").value = "";
+      renderSearchResults("");
+    });
+  }
+
+  async function bootstrap() {
+    wireEvents();
+    renderLineGrid();
+    renderFavourites();
+    fitLondon();
+
+    await loadStatuses();
+    setInterval(loadStatuses, STATUS_REFRESH_MS);
+
+    // Draw a default line immediately so the map isn't empty, then the user can draw all.
+    try {
+      await ensureLineDrawn("victoria");
+      await ensureLineDrawn("central");
+      renderSearchResults("");
+      toast("Map ready. Press “Draw all lines” for the full Tube map, or click a line for live prediction dots.");
+    } catch (err) {
+      console.error(err);
+      toast(`Initial route load failed: ${err.message}`, 5200);
+    }
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>
