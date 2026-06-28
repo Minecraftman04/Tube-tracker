@@ -350,18 +350,55 @@
       box-shadow: 0 0 0 4px rgba(56,189,248,0.28), 0 8px 24px rgba(0,0,0,0.45);
     }
 
+    .train-marker-wrap {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      transform: rotate(var(--angle, 0deg));
+      transform-origin: 17px 17px;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,0.45));
+    }
+
     .train-marker {
+      position: absolute;
+      left: 8px;
+      top: 8px;
       width: 18px;
       height: 18px;
       border-radius: 999px;
       border: 2px solid white;
-      box-shadow: 0 0 0 4px rgba(255,255,255,0.16), 0 10px 24px rgba(0,0,0,0.45);
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.16);
       animation: pulse 1.25s infinite ease-in-out;
     }
 
+    .train-arrow {
+      position: absolute;
+      left: 50%;
+      top: -11px;
+      width: 0;
+      height: 0;
+      transform: translateX(-50%);
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-bottom: 12px solid white;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
+    }
+
+    .train-arrow::after {
+      content: "";
+      position: absolute;
+      left: -3px;
+      top: 4px;
+      width: 0;
+      height: 0;
+      border-left: 3px solid transparent;
+      border-right: 3px solid transparent;
+      border-bottom: 6px solid rgba(15,23,42,0.9);
+    }
+
     @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 0.95; }
-      50% { transform: scale(1.18); opacity: 0.72; }
+      0%, 100% { transform: scale(1); opacity: 0.96; }
+      50% { transform: scale(1.16); opacity: 0.78; }
     }
 
 
@@ -451,7 +488,7 @@
   <div id="topbar">
     <div class="title-card glass">
       <h1 class="title">London Tube Live Map</h1>
-      <p class="sub">Free static GitHub Pages app using TfL Open Data. Switch between street and satellite map layers. Prediction dots show the next station prediction, not exact train GPS.</p>
+      <p class="sub">Free static GitHub Pages app using TfL Open Data. Trains animate towards their next predicted station with direction arrows; they are prediction-based, not exact GPS.</p>
     </div>
 
     <div class="search-card glass">
@@ -526,7 +563,7 @@
   const TFL_BASE = "https://api.tfl.gov.uk";
   const CACHE_VERSION = "tube-live-map-v1";
   const ROUTE_CACHE_HOURS = 24 * 7;
-  const ARRIVALS_REFRESH_MS = 30_000;
+  const ARRIVALS_REFRESH_MS = 15_000;
   const STATUS_REFRESH_MS = 60_000;
 
   const TUBE_LINES = [
@@ -551,9 +588,12 @@
     stations: new Map(),
     markers: new Map(),
     lineLayers: new Map(),
+    routeSequences: new Map(),
+    trains: new Map(),
     activeLiveLine: null,
     liveTimer: null,
     arrivalsTimer: null,
+    animationFrame: null,
     selectedStation: null,
     selectedMarker: null,
     drawnLines: new Set(),
@@ -805,14 +845,26 @@
 
   function collectStations(seq, lineId) {
     const line = byLine[lineId];
+    const routeSequences = [];
 
-    const upsert = (stop) => {
+    const normaliseStop = (stop) => {
       const id = stop.stationId || stop.naptanId || stop.id;
       const lat = Number(stop.lat);
       const lon = Number(stop.lon);
-      if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return {
+        id,
+        name: cleanStationName(stop.name || stop.commonName || id),
+        lat,
+        lon
+      };
+    };
 
-      const name = cleanStationName(stop.name || stop.commonName || id);
+    const upsert = (stop) => {
+      const normalised = normaliseStop(stop);
+      if (!normalised) return;
+
+      const { id, name, lat, lon } = normalised;
       const existing = state.stations.get(id) || {
         id, name, lat, lon, lines: new Map()
       };
@@ -824,10 +876,19 @@
     };
 
     for (const branch of seq.stopPointSequences || []) {
+      const stops = (branch.stopPoint || []).map(normaliseStop).filter(Boolean);
+      if (stops.length > 1) {
+        routeSequences.push({
+          direction: String(branch.direction || branch.name || ""),
+          stops
+        });
+      }
       for (const stop of branch.stopPoint || []) upsert(stop);
     }
 
     for (const stop of seq.stations || []) upsert(stop);
+
+    if (routeSequences.length) state.routeSequences.set(lineId, routeSequences);
   }
 
   function cleanStationName(name) {
@@ -867,13 +928,20 @@
     });
   }
 
-  function makeTrainIcon(lineId) {
+  function makeTrainIcon(lineId, bearing = 0) {
     const line = byLine[lineId] || {};
+    const safeBearing = Number.isFinite(Number(bearing)) ? Number(bearing) : 0;
     return L.divIcon({
       className: "",
-      html: `<div class="train-marker" style="background:${line.color || "#38bdf8"}"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9]
+      html: `
+        <div class="train-marker-wrap" style="--angle:${safeBearing}deg">
+          <div class="train-marker" style="background:${line.color || "#38bdf8"}">
+            <div class="train-arrow"></div>
+          </div>
+        </div>
+      `,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
     });
   }
 
@@ -1086,7 +1154,7 @@
 
   async function loadLiveLine(lineId) {
     state.activeLiveLine = lineId;
-    trainLayer.clearLayers();
+    clearLiveTrains();
     clearInterval(state.liveTimer);
 
     try {
@@ -1110,14 +1178,19 @@
     }
   }
 
-  function renderLivePredictions(lineId, arrivals) {
-    trainLayer.clearLayers();
+  function clearLiveTrains() {
+    for (const item of state.trains.values()) {
+      trainLayer.removeLayer(item.marker);
+    }
+    state.trains.clear();
+  }
 
+  function renderLivePredictions(lineId, arrivals, quiet = false) {
     const line = byLine[lineId] || {};
     const byVehicle = new Map();
 
     for (const a of arrivals) {
-      const vehicleKey = a.vehicleId || `${a.lineId}:${a.destinationNaptanId || a.destinationName}:${a.naptanId}:${a.platformName}`;
+      const vehicleKey = getPredictionKey(a);
       const existing = byVehicle.get(vehicleKey);
       if (!existing || Number(a.timeToStation) < Number(existing.timeToStation)) {
         byVehicle.set(vehicleKey, a);
@@ -1127,30 +1200,253 @@
     const chosen = Array.from(byVehicle.values())
       .filter(a => Number.isFinite(Number(a.timeToStation)))
       .sort((a, b) => Number(a.timeToStation) - Number(b.timeToStation))
-      .slice(0, 80);
+      .slice(0, 90);
+
+    const now = Date.now();
+    const seen = new Set();
 
     for (const a of chosen) {
       const station = state.stations.get(a.naptanId) || findStationByName(a.stationName);
       if (!station) continue;
-
-      const mins = Math.max(0, Math.round(Number(a.timeToStation || 0) / 60));
-      const marker = L.marker([station.lat, station.lon], {
-        pane: "trains",
-        icon: makeTrainIcon(lineId),
-        title: `${line.name || a.lineName} prediction: ${mins} min`
-      });
-
-      marker.bindPopup(`
-        <strong>${escapeHtml(line.name || a.lineName || lineId)} prediction</strong><br>
-        ${escapeHtml(a.stationName || station.name)} in <strong>${mins} min</strong><br>
-        <span style="color:#9db2c9">${escapeHtml(a.destinationName || "")}</span><br>
-        <span style="color:#9db2c9">${escapeHtml(a.currentLocation || "Prediction is placed at its next predicted station.")}</span>
-      `);
-
-      marker.addTo(trainLayer);
+      const key = getPredictionKey(a);
+      seen.add(key);
+      upsertAnimatedTrain(lineId, key, a, station, now);
     }
 
-    toast(`${line.name || lineId}: ${chosen.length} live prediction dots loaded`);
+    for (const [key, item] of state.trains.entries()) {
+      if (item.lineId !== lineId) continue;
+      if (!seen.has(key) && now - item.lastSeenAt > ARRIVALS_REFRESH_MS * 2.4) {
+        trainLayer.removeLayer(item.marker);
+        state.trains.delete(key);
+      }
+    }
+
+    startAnimationLoop();
+
+    if (!quiet) {
+      toast(`${line.name || lineId}: ${chosen.length} animated prediction trains loaded`);
+    }
+  }
+
+  function getPredictionKey(a) {
+    return a.vehicleId || `${a.lineId}:${a.destinationNaptanId || a.destinationName}:${a.naptanId}:${a.platformName || a.direction || ""}`;
+  }
+
+  function upsertAnimatedTrain(lineId, key, prediction, targetStation, now) {
+    const line = byLine[lineId] || {};
+    const etaSeconds = Math.max(0, Number(prediction.timeToStation || 0));
+    const routeHint = findRouteHint(lineId, prediction, targetStation);
+    const target = latLngObj(targetStation);
+    const previous = routeHint?.previous ? latLngObj(routeHint.previous) : null;
+
+    let item = state.trains.get(key);
+    const currentLatLng = item ? item.marker.getLatLng() : null;
+    const start = currentLatLng
+      ? latLngObj(currentLatLng)
+      : estimateInitialTrainPosition(previous, target, etaSeconds);
+
+    const bearing = routeHint?.bearing ?? bearingDegrees(start, target);
+    const endAt = now + Math.max(etaSeconds * 1000, 6500);
+
+    if (!item) {
+      const marker = L.marker([start.lat, start.lon], {
+        pane: "trains",
+        icon: makeTrainIcon(lineId, bearing),
+        title: `${line.name || prediction.lineName || lineId}: ${Math.round(etaSeconds / 60)} min to ${targetStation.name}`
+      }).addTo(trainLayer);
+
+      item = {
+        lineId,
+        key,
+        marker,
+        start,
+        end: target,
+        startedAt: now,
+        endAt,
+        lastSeenAt: now,
+        targetStationId: targetStation.id,
+        targetName: targetStation.name,
+        destinationName: prediction.destinationName || "",
+        platformName: prediction.platformName || "",
+        currentLocation: prediction.currentLocation || "",
+        etaSeconds,
+        bearing
+      };
+
+      state.trains.set(key, item);
+    } else {
+      item.start = start;
+      item.end = target;
+      item.startedAt = now;
+      item.endAt = endAt;
+      item.lastSeenAt = now;
+      item.targetStationId = targetStation.id;
+      item.targetName = targetStation.name;
+      item.destinationName = prediction.destinationName || "";
+      item.platformName = prediction.platformName || "";
+      item.currentLocation = prediction.currentLocation || "";
+      item.etaSeconds = etaSeconds;
+      item.bearing = bearing;
+    }
+
+    updateTrainIconDirection(item, bearing);
+    updateTrainPopup(item, lineId, prediction);
+  }
+
+  function updateTrainPopup(item, lineId, prediction) {
+    const line = byLine[lineId] || {};
+    const mins = Math.max(0, Math.round(Number(prediction.timeToStation || 0) / 60));
+    item.marker.bindPopup(`
+      <strong>${escapeHtml(line.name || prediction.lineName || lineId)} animated prediction</strong><br>
+      Moving towards <strong>${escapeHtml(item.targetName)}</strong> in <strong>${mins} min</strong><br>
+      <span style="color:#9db2c9">${escapeHtml(prediction.destinationName || "")}</span><br>
+      <span style="color:#9db2c9">${escapeHtml(prediction.currentLocation || "Position is interpolated from TfL arrival predictions, not GPS.")}</span>
+    `);
+  }
+
+  function startAnimationLoop() {
+    if (state.animationFrame) return;
+    const tick = () => {
+      animateTrains();
+      state.animationFrame = requestAnimationFrame(tick);
+    };
+    state.animationFrame = requestAnimationFrame(tick);
+  }
+
+  function animateTrains() {
+    const now = Date.now();
+
+    for (const [key, item] of state.trains.entries()) {
+      if (now - item.lastSeenAt > ARRIVALS_REFRESH_MS * 3.5) {
+        trainLayer.removeLayer(item.marker);
+        state.trains.delete(key);
+        continue;
+      }
+
+      const t = clamp((now - item.startedAt) / Math.max(1, item.endAt - item.startedAt), 0, 1);
+      const pos = interpolateLatLng(item.start, item.end, t);
+      item.marker.setLatLng([pos.lat, pos.lon]);
+
+      const liveBearing = bearingDegrees(pos, item.end);
+      if (Number.isFinite(liveBearing)) updateTrainIconDirection(item, liveBearing);
+    }
+  }
+
+  function updateTrainIconDirection(item, bearing) {
+    const icon = item.marker && item.marker._icon;
+    if (!icon) return;
+    const wrap = icon.querySelector(".train-marker-wrap");
+    if (wrap) wrap.style.setProperty("--angle", `${Number.isFinite(bearing) ? bearing : item.bearing || 0}deg`);
+  }
+
+  function findRouteHint(lineId, prediction, targetStation) {
+    const sequences = state.routeSequences.get(lineId) || [];
+    const targetId = targetStation.id;
+    const targetName = cleanStationName(targetStation.name).toLowerCase();
+    const destName = cleanStationName(prediction.destinationName || "").toLowerCase();
+    const predictionDirection = String(prediction.direction || "").toLowerCase();
+
+    let best = null;
+
+    for (const seq of sequences) {
+      const directionScore = predictionDirection && String(seq.direction || "").toLowerCase().includes(predictionDirection) ? 3 : 0;
+      for (let i = 0; i < seq.stops.length; i++) {
+        const stop = seq.stops[i];
+        if (stop.id !== targetId && cleanStationName(stop.name).toLowerCase() !== targetName) continue;
+
+        let travelForward = true;
+        let score = directionScore + 1;
+
+        if (destName) {
+          const destIndex = seq.stops.findIndex(s => cleanStationName(s.name).toLowerCase() === destName);
+          if (destIndex > i) {
+            travelForward = true;
+            score += 6;
+          } else if (destIndex >= 0 && destIndex < i) {
+            travelForward = false;
+            score += 5;
+          }
+        }
+
+        const previous = travelForward ? seq.stops[i - 1] : seq.stops[i + 1];
+        const next = travelForward ? seq.stops[i + 1] : seq.stops[i - 1];
+
+        if (previous) score += 2;
+        if (next) score += 1;
+
+        const candidate = {
+          previous,
+          next,
+          score,
+          bearing: previous ? bearingDegrees(previous, targetStation) : (next ? bearingDegrees(targetStation, next) : 0)
+        };
+
+        if (!best || candidate.score > best.score) best = candidate;
+      }
+    }
+
+    return best;
+  }
+
+  function estimateInitialTrainPosition(previous, target, etaSeconds) {
+    if (!previous) return target;
+
+    const distance = distanceMeters(previous, target);
+    const estimatedSegmentSeconds = clamp(distance / 12, 45, 240);
+    const progress = clamp(1 - etaSeconds / estimatedSegmentSeconds, 0.04, 0.96);
+    return interpolateLatLng(previous, target, progress);
+  }
+
+  function latLngObj(point) {
+    if (!point) return null;
+    if (typeof point.lat === "number" && typeof point.lon === "number") return { lat: point.lat, lon: point.lon };
+    if (typeof point.lat === "number" && typeof point.lng === "number") return { lat: point.lat, lon: point.lng };
+    if (Array.isArray(point)) return { lat: Number(point[0]), lon: Number(point[1]) };
+    return { lat: Number(point.lat), lon: Number(point.lon ?? point.lng) };
+  }
+
+  function interpolateLatLng(a, b, t) {
+    const f = clamp(t, 0, 1);
+    return {
+      lat: a.lat + (b.lat - a.lat) * f,
+      lon: a.lon + (b.lon - a.lon) * f
+    };
+  }
+
+  function bearingDegrees(from, to) {
+    if (!from || !to) return 0;
+    const lat1 = toRad(Number(from.lat));
+    const lat2 = toRad(Number(to.lat));
+    const dLon = toRad(Number(to.lon) - Number(from.lon));
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const brng = (toDeg(Math.atan2(y, x)) + 360) % 360;
+    return Number.isFinite(brng) ? brng : 0;
+  }
+
+  function distanceMeters(a, b) {
+    const R = 6371000;
+    const lat1 = toRad(Number(a.lat));
+    const lat2 = toRad(Number(b.lat));
+    const dLat = toRad(Number(b.lat) - Number(a.lat));
+    const dLon = toRad(Number(b.lon) - Number(a.lon));
+    const h =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  function toRad(deg) {
+    return Number(deg) * Math.PI / 180;
+  }
+
+  function toDeg(rad) {
+    return Number(rad) * 180 / Math.PI;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, Number(value)));
   }
 
   function findStationByName(name) {
@@ -1265,8 +1561,8 @@
     $("clearLive").addEventListener("click", () => {
       state.activeLiveLine = null;
       clearInterval(state.liveTimer);
-      trainLayer.clearLayers();
-      toast("Live prediction dots cleared.");
+      clearLiveTrains();
+      toast("Live train predictions cleared.");
     });
 
     $("fitLondon").addEventListener("click", fitLondon);
@@ -1322,7 +1618,7 @@
       await ensureLineDrawn("victoria");
       await ensureLineDrawn("central");
       renderSearchResults("");
-      toast("Map ready. Press “Draw all lines” for the full Tube map, or click a line for live prediction dots.");
+      toast("Map ready. Press “Draw all lines” for the full Tube map, or click a line for animated train arrows.");
     } catch (err) {
       console.error(err);
       toast(`Initial route load failed: ${err.message}`, 5200);
