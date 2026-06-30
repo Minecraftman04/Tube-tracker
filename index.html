@@ -149,6 +149,19 @@
       border-color: rgba(251,113,133,0.26);
     }
 
+    button.active {
+      background: linear-gradient(135deg, rgba(16,185,129,0.28), rgba(56,189,248,0.18));
+      border-color: rgba(16,185,129,0.44);
+      box-shadow: 0 0 0 3px rgba(16,185,129,0.08) inset;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 9px;
+    }
+
     .key-card {
       display: flex;
       align-items: center;
@@ -487,8 +500,8 @@
 
   <div id="topbar">
     <div class="title-card glass">
-      <h1 class="title">London Tube Live Map</h1>
-      <p class="sub">Free static GitHub Pages app using TfL Open Data. Trains animate towards their next predicted station with direction arrows; they are prediction-based, not exact GPS.</p>
+      <h1 class="title">London Tube Live Map <span style="font-size:12px;color:#9db2c9;font-weight:700">v5</span></h1>
+      <p class="sub">Free static GitHub Pages app using TfL Open Data. Track one Tube route or all routes, toggle stations, and animate prediction-based trains with direction arrows.</p>
     </div>
 
     <div class="search-card glass">
@@ -514,8 +527,20 @@
         <div class="line-grid" id="lineGrid"></div>
         <div class="small-actions">
           <button id="drawAll">Draw all lines</button>
-          <button id="clearLive" class="danger">Clear live dots</button>
+          <button id="clearLive" class="danger">Clear trains</button>
         </div>
+      </div>
+
+      <div class="section">
+        <h2>Tracking mode</h2>
+        <div class="mode-grid">
+          <button id="trackSingle">One route</button>
+          <button id="trackAll" class="primary">All routes</button>
+        </div>
+        <div class="small-actions">
+          <button id="toggleStations">Hide stations</button>
+        </div>
+        <p class="row-sub" id="trackingStatus">One-route mode: click a line to track it.</p>
       </div>
 
       <div class="section">
@@ -590,10 +615,13 @@
     lineLayers: new Map(),
     routeSequences: new Map(),
     trains: new Map(),
+    trackMode: localStorage.getItem("tubeTrackMode") || "single",
+    stationsVisible: localStorage.getItem("tubeStationsVisible") !== "false",
     activeLiveLine: null,
     liveTimer: null,
     arrivalsTimer: null,
     animationFrame: null,
+    liveRefreshBusy: false,
     selectedStation: null,
     selectedMarker: null,
     drawnLines: new Set(),
@@ -948,7 +976,7 @@
   function drawRoutes(seq, lineId) {
     const line = byLine[lineId];
     const paths = parseLineStrings(seq.lineStrings);
-    const group = L.layerGroup();
+    const group = L.featureGroup();
 
     if (paths.length) {
       const seen = new Set();
@@ -1010,14 +1038,27 @@
 
   async function selectLine(lineId) {
     try {
+      state.activeLiveLine = lineId;
       toast(`Loading ${byLine[lineId]?.name || lineId} line…`);
       await ensureLineDrawn(lineId);
-      await loadLiveLine(lineId);
+
+      if (state.trackMode === "all") {
+        await startAllLineTracking({ keepMapView: true });
+      } else {
+        await loadLiveLine(lineId);
+      }
+
       const group = state.lineLayers.get(lineId);
-      if (group) map.fitBounds(group.getBounds(), { padding: [45, 45], maxZoom: 13 });
+      fitLayerGroupSafely(group);
     } catch (err) {
       console.error(err);
       toast(`Could not load ${lineId}: ${err.message}`, 5200);
+    }
+  }
+
+  async function ensureAllLinesDrawn() {
+    for (const line of TUBE_LINES) {
+      await ensureLineDrawn(line.id);
     }
   }
 
@@ -1026,17 +1067,34 @@
     state.busy = true;
     $("drawAll").textContent = "Drawing…";
     try {
-      for (const line of TUBE_LINES) {
-        await ensureLineDrawn(line.id);
-      }
+      await ensureAllLinesDrawn();
       fitLondon();
-      toast("All Tube lines drawn. Click a line to load live prediction dots.");
+      toast("All Tube lines drawn. Use “All routes” to show trains on every route, or “One route” then click a line.");
     } catch (err) {
       console.error(err);
       toast(err.message, 5200);
     } finally {
       state.busy = false;
       $("drawAll").textContent = "Draw all lines";
+    }
+  }
+
+  function fitLayerGroupSafely(group) {
+    try {
+      if (!group || typeof group.getBounds !== "function") {
+        fitLondon();
+        return;
+      }
+
+      const bounds = group.getBounds();
+      if (bounds && bounds.isValid && bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 13 });
+      } else {
+        fitLondon();
+      }
+    } catch (err) {
+      console.warn("Could not fit route bounds:", err);
+      fitLondon();
     }
   }
 
@@ -1153,7 +1211,10 @@
   }
 
   async function loadLiveLine(lineId) {
+    state.trackMode = "single";
+    localStorage.setItem("tubeTrackMode", state.trackMode);
     state.activeLiveLine = lineId;
+    updateTrackingControls();
     clearLiveTrains();
     clearInterval(state.liveTimer);
 
@@ -1161,7 +1222,7 @@
       const data = await tflFetch(`Line/${lineId}/Arrivals`);
       renderLivePredictions(lineId, data || []);
       state.liveTimer = setInterval(() => {
-        if (state.activeLiveLine) refreshLiveLine(state.activeLiveLine);
+        if (state.trackMode === "single" && state.activeLiveLine) refreshLiveLine(state.activeLiveLine);
       }, ARRIVALS_REFRESH_MS);
     } catch (err) {
       console.error(err);
@@ -1169,12 +1230,107 @@
     }
   }
 
+  async function startSingleLineTracking() {
+    state.trackMode = "single";
+    localStorage.setItem("tubeTrackMode", state.trackMode);
+    updateTrackingControls();
+    clearInterval(state.liveTimer);
+    clearLiveTrains();
+
+    if (state.activeLiveLine) {
+      await loadLiveLine(state.activeLiveLine);
+    } else {
+      toast("One-route mode selected. Click a Tube line to track that route.");
+    }
+  }
+
+  async function startAllLineTracking(options = {}) {
+    if (state.busy && !options.keepMapView) return;
+    state.trackMode = "all";
+    localStorage.setItem("tubeTrackMode", state.trackMode);
+    updateTrackingControls();
+    clearInterval(state.liveTimer);
+
+    try {
+      if (!options.keepExistingTrains) clearLiveTrains();
+
+      const oldBusy = state.busy;
+      state.busy = true;
+      if ($("trackAll")) $("trackAll").textContent = "Loading all…";
+
+      await ensureAllLinesDrawn();
+      await refreshAllLiveLines(false);
+
+      state.liveTimer = setInterval(() => {
+        if (state.trackMode === "all") refreshAllLiveLines(true);
+      }, ARRIVALS_REFRESH_MS);
+
+      if (!options.keepMapView) fitLondon();
+      toast("Tracking trains on all Tube routes. This uses more TfL API requests than one-route mode.");
+      state.busy = oldBusy;
+    } catch (err) {
+      console.error(err);
+      toast(`Could not start all-route tracking: ${err.message}`, 6200);
+      state.busy = false;
+    } finally {
+      if ($("trackAll")) $("trackAll").textContent = "All routes";
+      updateTrackingControls();
+    }
+  }
+
   async function refreshLiveLine(lineId) {
+    if (state.liveRefreshBusy) return;
+    state.liveRefreshBusy = true;
     try {
       const data = await tflFetch(`Line/${lineId}/Arrivals`);
       renderLivePredictions(lineId, data || [], true);
     } catch (err) {
       console.error(err);
+    } finally {
+      state.liveRefreshBusy = false;
+    }
+  }
+
+  async function refreshAllLiveLines(quiet = true) {
+    if (state.liveRefreshBusy) return;
+    state.liveRefreshBusy = true;
+
+    try {
+      const lineIds = TUBE_LINES.map(line => line.id);
+      let data = [];
+
+      // TfL supports comma-separated line IDs for many Line endpoints. If a browser/API edge
+      // case rejects that, fall back to one request per line.
+      try {
+        data = await tflFetch(`Line/${lineIds.join(",")}/Arrivals`);
+      } catch (bulkErr) {
+        console.warn("Bulk all-line arrivals request failed; falling back to per-line requests.", bulkErr);
+        const results = await Promise.allSettled(
+          lineIds.map(id => tflFetch(`Line/${id}/Arrivals`))
+        );
+        data = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+      }
+
+      const grouped = new Map();
+      for (const prediction of data || []) {
+        if (!prediction || !prediction.lineId) continue;
+        if (!grouped.has(prediction.lineId)) grouped.set(prediction.lineId, []);
+        grouped.get(prediction.lineId).push(prediction);
+      }
+
+      for (const lineId of lineIds) {
+        renderLivePredictions(lineId, grouped.get(lineId) || [], true);
+      }
+
+      if (!quiet) {
+        const count = Array.from(state.trains.values()).length;
+        toast(`All routes: ${count} animated train predictions shown.`);
+      }
+    } catch (err) {
+      console.error(err);
+      if (!quiet) toast(`All-route live predictions failed: ${err.message}`, 6200);
+    } finally {
+      state.liveRefreshBusy = false;
     }
   }
 
@@ -1197,10 +1353,11 @@
       }
     }
 
+    const perLineLimit = state.trackMode === "all" ? 70 : 90;
     const chosen = Array.from(byVehicle.values())
       .filter(a => Number.isFinite(Number(a.timeToStation)))
       .sort((a, b) => Number(a.timeToStation) - Number(b.timeToStation))
-      .slice(0, 90);
+      .slice(0, perLineLimit);
 
     const now = Date.now();
     const seen = new Set();
@@ -1226,10 +1383,13 @@
     if (!quiet) {
       toast(`${line.name || lineId}: ${chosen.length} animated prediction trains loaded`);
     }
+
+    updateTrackingControls();
   }
 
   function getPredictionKey(a) {
-    return a.vehicleId || `${a.lineId}:${a.destinationNaptanId || a.destinationName}:${a.naptanId}:${a.platformName || a.direction || ""}`;
+    const vehiclePart = a.vehicleId || `${a.destinationNaptanId || a.destinationName}:${a.naptanId}:${a.platformName || a.direction || ""}`;
+    return `${a.lineId || "unknown"}:${vehiclePart}`;
   }
 
   function upsertAnimatedTrain(lineId, key, prediction, targetStation, now) {
@@ -1330,6 +1490,8 @@
       const liveBearing = bearingDegrees(pos, item.end);
       if (Number.isFinite(liveBearing)) updateTrainIconDirection(item, liveBearing);
     }
+
+    updateTrackingControls();
   }
 
   function updateTrainIconDirection(item, bearing) {
@@ -1543,6 +1705,48 @@
       .replaceAll("'", "&#039;");
   }
 
+  function updateTrackingControls() {
+    const single = $("trackSingle");
+    const all = $("trackAll");
+    const status = $("trackingStatus");
+    const stationToggle = $("toggleStations");
+
+    if (single) single.classList.toggle("active", state.trackMode === "single");
+    if (all) all.classList.toggle("active", state.trackMode === "all");
+
+    if (stationToggle) stationToggle.textContent = state.stationsVisible ? "Hide stations" : "Show stations";
+
+    if (status) {
+      const trainCount = state.trains.size;
+      if (state.trackMode === "all") {
+        status.textContent = `All-route mode: showing ${trainCount} animated train predictions across Tube lines.`;
+      } else if (state.activeLiveLine) {
+        status.textContent = `One-route mode: tracking ${byLine[state.activeLiveLine]?.name || state.activeLiveLine} only (${trainCount} train predictions).`;
+      } else {
+        status.textContent = "One-route mode: click a line to track it.";
+      }
+    }
+  }
+
+  function setStationsVisible(visible) {
+    state.stationsVisible = Boolean(visible);
+    localStorage.setItem("tubeStationsVisible", String(state.stationsVisible));
+
+    if (state.stationsVisible) {
+      if (!map.hasLayer(stationLayer)) stationLayer.addTo(map);
+      toast("Station markers shown.");
+    } else {
+      if (map.hasLayer(stationLayer)) map.removeLayer(stationLayer);
+      toast("Station markers hidden. Search and favourites still work.");
+    }
+
+    updateTrackingControls();
+  }
+
+  function toggleStationsVisible() {
+    setStationsVisible(!state.stationsVisible);
+  }
+
   function wireEvents() {
     $("apiKey").value = state.apiKey;
     $("saveKey").addEventListener("click", () => {
@@ -1558,10 +1762,15 @@
     });
 
     $("drawAll").addEventListener("click", drawAllLines);
+    $("trackSingle").addEventListener("click", startSingleLineTracking);
+    $("trackAll").addEventListener("click", () => startAllLineTracking());
+    $("toggleStations").addEventListener("click", toggleStationsVisible);
+
     $("clearLive").addEventListener("click", () => {
       state.activeLiveLine = null;
       clearInterval(state.liveTimer);
       clearLiveTrains();
+      updateTrackingControls();
       toast("Live train predictions cleared.");
     });
 
@@ -1608,6 +1817,10 @@
     wireEvents();
     renderLineGrid();
     renderFavourites();
+    updateTrackingControls();
+    if (!state.stationsVisible) {
+      if (map.hasLayer(stationLayer)) map.removeLayer(stationLayer);
+    }
     fitLondon();
 
     await loadStatuses();
@@ -1618,7 +1831,7 @@
       await ensureLineDrawn("victoria");
       await ensureLineDrawn("central");
       renderSearchResults("");
-      toast("Map ready. Press “Draw all lines” for the full Tube map, or click a line for animated train arrows.");
+      toast("Map ready. Use “All routes” to track every Tube route, or “One route” then click a line.");
     } catch (err) {
       console.error(err);
       toast(`Initial route load failed: ${err.message}`, 5200);
