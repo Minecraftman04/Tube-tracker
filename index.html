@@ -67,7 +67,7 @@
       right: 14px;
       top: 14px;
       display: grid;
-      grid-template-columns: minmax(260px, 430px) 1fr;
+      grid-template-columns: minmax(260px, 430px);
       gap: 12px;
       pointer-events: none;
     }
@@ -101,7 +101,7 @@
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 8px;
-      padding: 10px;
+      margin-top: 10px;
       align-items: center;
     }
 
@@ -450,13 +450,8 @@
     .bad { color: var(--bad); }
 
     @media (max-width: 900px) {
-      #topbar {
-        grid-template-columns: 1fr;
-      }
       #sidebar {
-        top: 162px;
         width: calc(100vw - 28px);
-        max-height: calc(100vh - 176px);
       }
       #floatingActions {
         bottom: 14px;
@@ -469,9 +464,6 @@
       }
       .title-card {
         padding: 12px;
-      }
-      #sidebar {
-        top: 178px;
       }
     }
   </style>
@@ -487,17 +479,16 @@
       <p class="sub">Free static GitHub Pages app using TfL Open Data. Track one Tube route or all routes, toggle stations, and animate prediction-based trains with direction arrows.</p>
     </div>
 
-    <div class="search-card glass">
-      <input id="stationSearch" type="search" placeholder="Search a Tube station, e.g. King's Cross, Oxford Circus..." autocomplete="off" />
-      <button id="clearSearch" title="Clear search">Clear</button>
-    </div>
-
   </div>
 
   <aside id="sidebar" class="glass">
     <div id="sidebarHeader">
       <div class="row-title">Live controls</div>
       <p class="row-sub" id="lastUpdated">Loading TfL data…</p>
+      <div class="search-card">
+        <input id="stationSearch" type="search" placeholder="Search a Tube station, e.g. King's Cross, Oxford Circus..." autocomplete="off" />
+        <button id="clearSearch" title="Clear search">Clear</button>
+      </div>
     </div>
 
     <div id="content">
