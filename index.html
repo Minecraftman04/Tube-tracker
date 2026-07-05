@@ -67,12 +67,12 @@
       right: 14px;
       top: 14px;
       display: grid;
-      grid-template-columns: minmax(260px, 430px) 1fr auto;
+      grid-template-columns: minmax(260px, 430px) 1fr;
       gap: 12px;
       pointer-events: none;
     }
 
-    .title-card, .search-card, .key-card {
+    .title-card, .search-card {
       pointer-events: auto;
       border-radius: var(--radius);
     }
@@ -109,7 +109,7 @@
       font: inherit;
     }
 
-    input[type="search"], input[type="text"], input[type="password"] {
+    input[type="search"], input[type="text"] {
       width: 100%;
       color: var(--text);
       background: rgba(255,255,255,0.07);
@@ -161,16 +161,6 @@
       gap: 8px;
       margin-top: 9px;
     }
-
-    .key-card {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px;
-      min-width: 260px;
-    }
-
-    .key-card input { max-width: 210px; }
 
     #sidebar {
       position: absolute;
@@ -463,13 +453,10 @@
       #topbar {
         grid-template-columns: 1fr;
       }
-      .key-card {
-        min-width: 0;
-      }
       #sidebar {
-        top: 216px;
+        top: 162px;
         width: calc(100vw - 28px);
-        max-height: calc(100vh - 230px);
+        max-height: calc(100vh - 176px);
       }
       #floatingActions {
         bottom: 14px;
@@ -480,15 +467,11 @@
       .line-grid {
         grid-template-columns: 1fr;
       }
-      .key-card {
-        display: grid;
-        grid-template-columns: 1fr auto;
-      }
       .title-card {
         padding: 12px;
       }
       #sidebar {
-        top: 232px;
+        top: 178px;
       }
     }
   </style>
@@ -509,10 +492,6 @@
       <button id="clearSearch" title="Clear search">Clear</button>
     </div>
 
-    <div class="key-card glass">
-      <input id="apiKey" type="password" placeholder="Optional TfL app_key" autocomplete="off" />
-      <button id="saveKey" class="primary">Save key</button>
-    </div>
   </div>
 
   <aside id="sidebar" class="glass">
@@ -608,7 +587,6 @@
   const byLine = Object.fromEntries(TUBE_LINES.map(l => [l.id, l]));
 
   const state = {
-    apiKey: localStorage.getItem("tflAppKey") || "",
     statuses: new Map(),
     stations: new Map(),
     markers: new Map(),
@@ -683,8 +661,6 @@
 
   function buildUrl(path, params = {}) {
     const url = new URL(`${TFL_BASE}/${path.replace(/^\/+/, "")}`);
-    const key = state.apiKey || localStorage.getItem("tflAppKey") || "";
-    if (key) url.searchParams.set("app_key", key);
     for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
     }
@@ -775,7 +751,7 @@
       setUpdated(`Live TfL status loaded ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
     } catch (err) {
       console.error(err);
-      setUpdated("Could not load TfL status. Add a free app_key if the API blocks anonymous requests.");
+      setUpdated("Could not load TfL status. The anonymous TfL API request failed.");
       toast(err.message);
       renderLineGrid();
     }
@@ -1748,19 +1724,6 @@
   }
 
   function wireEvents() {
-    $("apiKey").value = state.apiKey;
-    $("saveKey").addEventListener("click", () => {
-      state.apiKey = $("apiKey").value.trim();
-      if (state.apiKey) {
-        localStorage.setItem("tflAppKey", state.apiKey);
-        toast("TfL app_key saved in this browser.");
-      } else {
-        localStorage.removeItem("tflAppKey");
-        toast("TfL app_key removed. The app will try anonymous TfL requests.");
-      }
-      loadStatuses();
-    });
-
     $("drawAll").addEventListener("click", drawAllLines);
     $("trackSingle").addEventListener("click", startSingleLineTracking);
     $("trackAll").addEventListener("click", () => startAllLineTracking());
