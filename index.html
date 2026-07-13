@@ -1,16 +1,20 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>London Tube Live Map</title>
-  <meta name="description" content="£0 London Tube real-time tracker map for GitHub Pages using TfL Open Data and Leaflet." />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#071525">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Tube Tracker — Live London Underground map</title>
+  <meta name="description" content="Explore London Underground lines, service status, stations and live arrival predictions on an interactive map.">
 
   <!-- Leaflet is free/open-source. Map tiles are OpenStreetMap tiles with attribution. -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  >
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
@@ -466,89 +470,1026 @@
         padding: 12px;
       }
     }
+
+    /* v6 interface */
+    :root {
+      --bg: #06111d;
+      --panel: rgba(7, 21, 37, 0.96);
+      --panel2: rgba(12, 31, 52, 0.96);
+      --surface: rgba(255, 255, 255, 0.055);
+      --surface-strong: rgba(255, 255, 255, 0.09);
+      --line: rgba(209, 230, 249, 0.13);
+      --text: #f6f9fc;
+      --muted: #9eb1c5;
+      --muted-strong: #c3d0dc;
+      --good: #35d39a;
+      --bad: #ff6b7d;
+      --warn: #f8c85a;
+      --blue: #42b8f4;
+      --accent: #ef3340;
+      --focus: #74ccff;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+      --radius: 22px;
+    }
+
+    html { color-scheme: dark; }
+
+    body {
+      background:
+        radial-gradient(circle at 75% 15%, rgba(23, 89, 129, 0.18), transparent 38%),
+        var(--bg);
+    }
+
+    button,
+    input {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 3px solid rgba(116, 204, 255, 0.82);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+      transform: none !important;
+    }
+
+    .map-tiles-dark {
+      filter: invert(0.92) hue-rotate(174deg) brightness(0.72) saturate(0.72) contrast(1.12);
+    }
+
+    .glass {
+      background: linear-gradient(160deg, rgba(13, 35, 58, 0.97), rgba(5, 17, 31, 0.96));
+      border-color: rgba(211, 232, 250, 0.14);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px) saturate(1.1);
+      -webkit-backdrop-filter: blur(20px) saturate(1.1);
+    }
+
+    #topbar {
+      left: 16px;
+      right: auto;
+      top: 16px;
+      width: 404px;
+      max-width: calc(100vw - 92px);
+      display: block;
+    }
+
+    .title-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding: 11px 14px 11px 12px;
+      border-radius: 18px;
+    }
+
+    .roundel {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 42px;
+      border: 6px solid var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 4px 18px rgba(239, 51, 64, 0.22);
+    }
+
+    .roundel::after {
+      content: "";
+      position: absolute;
+      left: -10px;
+      right: -10px;
+      top: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: #1764a3;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset;
+    }
+
+    .brand-copy {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 17px;
+      letter-spacing: -0.025em;
+    }
+
+    .sub {
+      margin-top: 3px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      min-height: 28px;
+      padding: 5px 8px;
+      border: 1px solid rgba(53, 211, 154, 0.2);
+      border-radius: 999px;
+      background: rgba(53, 211, 154, 0.08);
+      color: #c9f7e7;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 0 4px rgba(53, 211, 154, 0.12);
+      animation: livePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes livePulse {
+      50% { opacity: 0.55; transform: scale(0.82); }
+    }
+
+    #sidebar {
+      top: 87px;
+      bottom: 16px;
+      left: 16px;
+      width: 404px;
+      max-width: calc(100vw - 32px);
+      max-height: none;
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: opacity 0.2s ease, transform 0.24s ease;
+    }
+
+    #sidebarHeader {
+      position: relative;
+      z-index: 25;
+      padding: 14px 14px 0;
+      background: rgba(255, 255, 255, 0.018);
+    }
+
+    .panel-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .eyebrow {
+      margin: 0 0 2px;
+      color: var(--muted-strong);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    #lastUpdated {
+      max-width: 220px;
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .search-shell { position: relative; }
+
+    .search-card {
+      position: relative;
+      display: flex;
+      gap: 0;
+      margin: 0;
+    }
+
+    .search-icon {
+      position: absolute;
+      z-index: 2;
+      left: 13px;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      transform: translateY(-50%);
+      color: #8fa7bd;
+      pointer-events: none;
+    }
+
+    input[type="search"] {
+      min-height: 48px;
+      padding: 11px 46px 11px 42px;
+      border-color: rgba(211, 232, 250, 0.16);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.065);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+
+    input[type="search"]:focus {
+      border-color: rgba(116, 204, 255, 0.54);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    #clearSearch {
+      position: absolute;
+      z-index: 3;
+      right: 6px;
+      top: 6px;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    #clearSearch:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: none;
+    }
+
+    .search-results {
+      position: absolute;
+      z-index: 50;
+      left: 0;
+      right: 0;
+      top: calc(100% + 8px);
+      max-height: min(330px, 52vh);
+      overflow: auto;
+      padding: 7px;
+      border: 1px solid rgba(211, 232, 250, 0.16);
+      border-radius: 16px;
+      background: rgba(7, 21, 37, 0.99);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .search-result {
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 50px;
+      padding: 9px 10px;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .search-result:hover,
+    .search-result:focus-visible {
+      background: rgba(255, 255, 255, 0.075);
+      transform: none;
+    }
+
+    .result-lines {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .mini-line {
+      width: 9px;
+      height: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      border-radius: 50%;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      margin-top: 12px;
+      padding: 4px;
+      border-radius: 13px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .tab-btn {
+      min-height: 38px;
+      padding: 8px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .tab-btn:hover { transform: none; }
+
+    .tab-btn.active {
+      background: var(--surface-strong);
+      color: var(--text);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 4px 12px rgba(0, 0, 0, 0.18);
+    }
+
+    #content {
+      flex: 1;
+      min-height: 0;
+      padding: 14px;
+      overscroll-behavior: contain;
+      scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    }
+
+    .tab-panel { animation: panelIn 0.18s ease-out; }
+
+    @keyframes panelIn {
+      from { opacity: 0; transform: translateY(4px); }
+    }
+
+    .section { margin-bottom: 18px; }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+
+    .section h2,
+    .section-heading h2 {
+      margin: 0;
+      color: var(--muted-strong);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.11em;
+    }
+
+    .section-note {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .service-summary {
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr);
+      gap: 11px;
+      align-items: center;
+      min-height: 68px;
+      margin-bottom: 17px;
+      padding: 12px;
+      border: 1px solid rgba(53, 211, 154, 0.17);
+      border-radius: 16px;
+      background: linear-gradient(120deg, rgba(53, 211, 154, 0.105), rgba(66, 184, 244, 0.045));
+    }
+
+    .summary-icon {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(53, 211, 154, 0.12);
+      color: var(--good);
+      font-size: 19px;
+      font-weight: 900;
+    }
+
+    .service-summary.warn-state {
+      border-color: rgba(248, 200, 90, 0.22);
+      background: linear-gradient(120deg, rgba(248, 200, 90, 0.12), rgba(239, 51, 64, 0.04));
+    }
+
+    .service-summary.warn-state .summary-icon {
+      background: rgba(248, 200, 90, 0.12);
+      color: var(--warn);
+    }
+
+    .summary-title {
+      margin: 0 0 3px;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .summary-copy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .line-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .line-btn {
+      min-height: 47px;
+      padding: 8px 9px;
+      border-color: rgba(211, 232, 250, 0.09);
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .line-btn:hover {
+      border-color: rgba(211, 232, 250, 0.2);
+      background: rgba(255, 255, 255, 0.085);
+    }
+
+    .line-btn.active {
+      border-color: color-mix(in srgb, var(--line-colour, #42b8f4) 72%, white 12%);
+      background: color-mix(in srgb, var(--line-colour, #42b8f4) 16%, transparent);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--line-colour, #42b8f4) 20%, transparent) inset;
+    }
+
+    .swatch {
+      width: 15px;
+      height: 15px;
+      border-width: 1.5px;
+    }
+
+    .line-name { font-size: 12px; }
+
+    .status-pill {
+      max-width: 57px;
+      overflow: hidden;
+      padding: 3px 5px;
+      border: 0;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--muted-strong);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status-pill::before {
+      content: "";
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      margin-right: 4px;
+      border-radius: 50%;
+      background: #8ea3b7;
+      vertical-align: 1px;
+    }
+
+    .status-pill.good::before { background: var(--good); }
+    .status-pill.warn::before { background: var(--warn); }
+    .status-pill.bad::before { background: var(--bad); }
+
+    .status-pill.good {
+      width: 8px;
+      padding: 0;
+      overflow: visible;
+      background: transparent;
+      font-size: 0;
+    }
+
+    .status-pill.good::before {
+      width: 7px;
+      height: 7px;
+      margin: 0;
+      box-shadow: 0 0 0 3px rgba(53, 211, 154, 0.08);
+    }
+
+    .control-card,
+    .info-box,
+    .station-row,
+    .arrival-row,
+    .fav-row {
+      border-color: rgba(211, 232, 250, 0.09);
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .control-card {
+      padding: 11px;
+      border: 1px solid rgba(211, 232, 250, 0.09);
+      border-radius: 16px;
+    }
+
+    .mode-grid {
+      gap: 5px;
+      margin: 0 0 9px;
+      padding: 4px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .mode-grid button {
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .mode-grid button:hover { transform: none; }
+
+    .mode-grid button.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+    }
+
+    .tracking-metrics {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 11px;
+      background: rgba(66, 184, 244, 0.06);
+    }
+
+    .metric-number {
+      min-width: 28px;
+      color: #dcf3ff;
+      font-size: 21px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .small-actions { margin-top: 9px; }
+
+    .small-actions button {
+      min-height: 40px;
+      padding: 9px 11px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, rgba(66, 184, 244, 0.23), rgba(37, 113, 171, 0.19));
+      border-color: rgba(66, 184, 244, 0.33);
+    }
+
+    button.danger {
+      background: rgba(255, 107, 125, 0.09);
+      border-color: rgba(255, 107, 125, 0.2);
+      color: #ffc4cc;
+    }
+
+    .row-title { font-size: 13px; }
+    .row-sub { font-size: 11px; }
+
+    .station-card {
+      padding: 14px;
+      border-radius: 17px;
+      background:
+        radial-gradient(circle at 100% 0, rgba(66, 184, 244, 0.11), transparent 44%),
+        rgba(255, 255, 255, 0.05);
+    }
+
+    .station-card-title {
+      margin: 0 0 7px;
+      font-size: 18px;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+    }
+
+    .line-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 8px 0 0;
+    }
+
+    .line-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 7px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--muted-strong);
+      font-size: 10px;
+      font-weight: 750;
+    }
+
+    .line-chip-dot {
+      width: 7px;
+      height: 7px;
+      border: 1px solid rgba(255, 255, 255, 0.34);
+      border-radius: 50%;
+    }
+
+    .arrival-list { gap: 7px; }
+
+    .arrival-row {
+      position: relative;
+      overflow: hidden;
+      grid-template-columns: 55px minmax(0, 1fr);
+      min-height: 70px;
+      padding: 11px 11px 11px 14px;
+    }
+
+    .arrival-row::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--arrival-colour, var(--blue));
+    }
+
+    .eta {
+      font-size: 21px;
+      letter-spacing: -0.04em;
+    }
+
+    .eta.due {
+      font-size: 14px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .fav-row,
+    .station-row {
+      width: 100%;
+      min-height: 58px;
+      padding: 10px 11px;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .fav-row:hover,
+    .station-row:hover {
+      background: rgba(255, 255, 255, 0.085);
+    }
+
+    .empty-state {
+      padding: 22px 16px;
+      text-align: center;
+    }
+
+    .empty-icon {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.065);
+      color: var(--muted-strong);
+      font-size: 20px;
+    }
+
+    .data-note {
+      display: flex;
+      gap: 8px;
+      padding: 10px 11px;
+      border: 1px solid rgba(211, 232, 250, 0.08);
+      border-radius: 13px;
+      background: rgba(0, 0, 0, 0.13);
+      color: #849bb1;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    #floatingActions {
+      top: 82px;
+      right: 12px;
+      bottom: auto;
+      gap: 7px;
+    }
+
+    .map-action {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 14px;
+      color: #dbe8f3;
+    }
+
+    .map-action svg {
+      width: 19px;
+      height: 19px;
+      pointer-events: none;
+    }
+
+    .map-action:hover { transform: translateY(-1px); }
+
+    #toast {
+      bottom: 24px;
+      min-height: 43px;
+      display: none;
+      align-items: center;
+      padding: 10px 15px;
+      border-color: rgba(211, 232, 250, 0.16);
+      border-radius: 13px;
+      background: rgba(5, 16, 29, 0.97);
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .station-marker {
+      width: 13px;
+      height: 13px;
+      border: 3px solid #f7fbff;
+      background: #14283a;
+      box-shadow: 0 0 0 2px rgba(9, 24, 39, 0.78), 0 7px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .station-marker.selected {
+      width: 21px;
+      height: 21px;
+      border: 5px solid var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(239, 51, 64, 0.2), 0 9px 22px rgba(0, 0, 0, 0.48);
+    }
+
+    .train-marker { animation-duration: 1.8s; }
+
+    .user-location-marker {
+      width: 18px;
+      height: 18px;
+      border: 3px solid white;
+      border-radius: 50%;
+      background: var(--blue);
+      box-shadow: 0 0 0 8px rgba(66, 184, 244, 0.19), 0 8px 24px rgba(0, 0, 0, 0.42);
+    }
+
+    .leaflet-bar a,
+    .leaflet-bar a:hover {
+      width: 40px;
+      height: 40px;
+      border-color: rgba(211, 232, 250, 0.13);
+      background: rgba(7, 21, 37, 0.96);
+      color: var(--text);
+      line-height: 40px;
+    }
+
+    .leaflet-bar a:first-child { border-radius: 12px 12px 0 0; }
+    .leaflet-bar a:last-child { border-radius: 0 0 12px 12px; }
+
+    .leaflet-control-layers {
+      background: rgba(7, 21, 37, 0.96) !important;
+    }
+
+    .leaflet-control-layers-toggle {
+      filter: invert(1) opacity(0.8);
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 14px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+    }
+
+    .leaflet-tooltip {
+      border: 1px solid rgba(211, 232, 250, 0.14);
+      border-radius: 8px;
+      background: rgba(7, 21, 37, 0.94);
+      color: var(--text);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .leaflet-tooltip-top::before { border-top-color: rgba(7, 21, 37, 0.94); }
+
+    @media (max-width: 700px) {
+      #topbar {
+        left: 10px;
+        top: max(10px, env(safe-area-inset-top));
+        width: min(320px, calc(100vw - 82px));
+        max-width: none;
+      }
+
+      .title-card { padding: 9px 11px 9px 10px; }
+      .roundel { width: 35px; height: 35px; flex-basis: 35px; border-width: 5px; }
+      .roundel::after { left: -8px; right: -8px; top: 8px; height: 9px; }
+      .title { font-size: 15px; }
+      .sub { font-size: 10px; }
+      .live-badge { display: none; }
+
+      #sidebar {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-width: none;
+        height: min(57vh, 600px);
+        max-height: calc(100vh - 94px - env(safe-area-inset-top));
+        border-right: 0;
+        border-bottom: 0;
+        border-left: 0;
+        border-radius: 24px 24px 0 0;
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+
+      #sidebar::before {
+        content: "";
+        width: 38px;
+        height: 4px;
+        margin: 8px auto 0;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.22);
+      }
+
+      #sidebarHeader { padding-top: 8px; }
+      .panel-meta { display: none; }
+      .line-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #content { padding-bottom: 24px; }
+
+      #floatingActions {
+        top: calc(max(10px, env(safe-area-inset-top)) + 62px);
+        right: 10px;
+      }
+
+      .map-action { width: 42px; height: 42px; }
+
+      .leaflet-top { top: max(0px, env(safe-area-inset-top)); }
+      .leaflet-bottom { bottom: min(57vh, 600px); }
+      .leaflet-control-attribution { display: none; }
+
+      #toast {
+        bottom: calc(min(57vh, 600px) + 12px);
+        max-width: calc(100vw - 20px);
+        font-size: 11px;
+      }
+
+      #app.panel-hidden .leaflet-bottom { bottom: 0; }
+      #app.panel-hidden #toast { bottom: 14px; }
+    }
+
+    @media (max-width: 360px) {
+      .line-grid { grid-template-columns: 1fr; }
+      .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .tab-btn { font-size: 11px; padding-inline: 4px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
   </style>
 </head>
 
 <body>
 <div id="app">
-  <div id="map"></div>
+  <section id="map" aria-label="Interactive London Underground map"></section>
 
-  <div id="topbar">
+  <header id="topbar">
     <div class="title-card glass">
-      <h1 class="title">London Tube Live Map <span style="font-size:12px;color:#9db2c9;font-weight:700">v5</span></h1>
-      <p class="sub">Free static GitHub Pages app using TfL Open Data. Track one Tube route or all routes, toggle stations, and animate prediction-based trains with direction arrows.</p>
-    </div>
-
-  </div>
-
-  <aside id="sidebar" class="glass">
-    <div id="sidebarHeader">
-      <div class="row-title">Live controls</div>
-      <p class="row-sub" id="lastUpdated">Loading TfL data…</p>
-      <div class="search-card">
-        <input id="stationSearch" type="search" placeholder="Search a Tube station, e.g. King's Cross, Oxford Circus..." autocomplete="off" />
-        <button id="clearSearch" title="Clear search">Clear</button>
+      <span class="roundel" aria-hidden="true"></span>
+      <div class="brand-copy">
+        <h1 class="title">Tube Tracker</h1>
+        <p class="sub">London Underground · live status and arrivals</p>
       </div>
+      <div class="live-badge" title="Data supplied by Transport for London">
+        <span class="live-dot" aria-hidden="true"></span>
+        Live
+      </div>
+    </div>
+  </header>
+
+  <aside id="sidebar" class="glass" aria-label="Tube Tracker controls">
+    <div id="sidebarHeader">
+      <div class="panel-meta">
+        <div>
+          <p class="eyebrow">Network explorer</p>
+          <p class="row-title">London Underground</p>
+        </div>
+        <p class="row-sub" id="lastUpdated" aria-live="polite">Connecting to TfL…</p>
+      </div>
+
+      <div class="search-shell">
+        <div class="search-card">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.4-3.4"></path>
+          </svg>
+          <label class="hidden" for="stationSearch">Search Tube stations</label>
+          <input id="stationSearch" type="search" placeholder="Search any Tube station" autocomplete="off" spellcheck="false" aria-controls="searchResults">
+          <button type="button" id="clearSearch" title="Clear station search" aria-label="Clear station search">×</button>
+        </div>
+        <section id="searchResults" class="station-list search-results hidden" aria-label="Station search results"></section>
+      </div>
+
+      <nav class="tabs" role="tablist" aria-label="Tracker sections">
+        <button type="button" id="tabNetwork" class="tab-btn active" data-tab="network" role="tab" aria-controls="panelNetwork" aria-selected="true">Network</button>
+        <button type="button" id="tabArrivals" class="tab-btn" data-tab="arrivals" role="tab" aria-controls="panelArrivals" aria-selected="false">Arrivals</button>
+        <button type="button" id="tabSaved" class="tab-btn" data-tab="saved" role="tab" aria-controls="panelSaved" aria-selected="false">Saved</button>
+      </nav>
     </div>
 
     <div id="content">
-      <div class="section">
-        <h2>Lines</h2>
-        <div class="line-grid" id="lineGrid"></div>
-        <div class="small-actions">
-          <button id="drawAll">Draw all lines</button>
-          <button id="clearLive" class="danger">Clear trains</button>
+      <section id="panelNetwork" class="tab-panel" data-panel="network" role="tabpanel" aria-labelledby="tabNetwork">
+        <div id="serviceSummary" class="service-summary" aria-live="polite">
+          <div class="summary-icon" aria-hidden="true">···</div>
+          <div>
+            <p class="summary-title">Checking the network</p>
+            <p class="summary-copy">Loading the latest line status from TfL.</p>
+          </div>
         </div>
-      </div>
 
-      <div class="section">
-        <h2>Tracking mode</h2>
-        <div class="mode-grid">
-          <button id="trackSingle">One route</button>
-          <button id="trackAll" class="primary">All routes</button>
+        <div class="section">
+          <div class="section-heading">
+            <h2>Tube lines</h2>
+            <span class="section-note" id="networkProgress">Loading routes…</span>
+          </div>
+          <div class="line-grid" id="lineGrid"></div>
+          <div class="small-actions">
+            <button type="button" id="drawAll">Fit full network</button>
+            <button type="button" id="toggleStations">Hide stations</button>
+          </div>
         </div>
-        <div class="small-actions">
-          <button id="toggleStations">Hide stations</button>
-        </div>
-        <p class="row-sub" id="trackingStatus">One-route mode: click a line to track it.</p>
-      </div>
 
-      <div class="section">
-        <h2>Selected station</h2>
-        <div id="selectedStation" class="info-box">
-          <p class="row-title">No station selected</p>
-          <p class="row-sub">Click a station marker or search above to view live arrivals.</p>
+        <div class="section">
+          <div class="section-heading">
+            <h2>Live train predictions</h2>
+            <span class="section-note">Refreshes every 15 sec</span>
+          </div>
+          <div class="control-card">
+            <div class="mode-grid" role="group" aria-label="Train tracking mode">
+              <button type="button" id="trackSingle" aria-pressed="true">Selected line</button>
+              <button type="button" id="trackAll" aria-pressed="false">All lines</button>
+            </div>
+            <div class="tracking-metrics">
+              <div class="metric-number" id="trainCount">0</div>
+              <p class="row-sub" id="trackingStatus" aria-live="polite">Choose a line above to show its train predictions.</p>
+            </div>
+            <div class="small-actions">
+              <button type="button" id="clearLive" class="danger">Clear live trains</button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="section">
-        <h2>Arrivals</h2>
-        <div id="arrivals" class="arrival-list">
-          <div class="info-box"><p class="row-sub">Select a station first.</p></div>
+        <div class="data-note">
+          <span aria-hidden="true">ⓘ</span>
+          <span>Train markers are smoothly estimated between stations from TfL arrival predictions; they are not GPS positions.</span>
         </div>
-      </div>
+      </section>
 
-      <div class="section">
-        <h2>Favourites</h2>
-        <div id="favourites" class="fav-list"></div>
-      </div>
-
-      <div class="section">
-        <h2>Search results</h2>
-        <div id="searchResults" class="station-list">
-          <div class="info-box"><p class="row-sub">Search for a station to jump to it.</p></div>
+      <section id="panelArrivals" class="tab-panel hidden" data-panel="arrivals" role="tabpanel" aria-labelledby="tabArrivals">
+        <div class="section">
+          <div class="section-heading">
+            <h2>Selected station</h2>
+            <span class="section-note" id="arrivalsUpdated"></span>
+          </div>
+          <div id="selectedStation" class="info-box empty-state">
+            <div class="empty-icon" aria-hidden="true">⌖</div>
+            <p class="row-title">No station selected</p>
+            <p class="row-sub">Choose a marker on the map or search for a station above.</p>
+          </div>
         </div>
-      </div>
+
+        <div class="section">
+          <div class="section-heading">
+            <h2>Next arrivals</h2>
+            <span class="section-note">Live TfL estimates</span>
+          </div>
+          <div id="arrivals" class="arrival-list" aria-live="polite">
+            <div class="info-box empty-state"><p class="row-sub">Select a station to see upcoming trains.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panelSaved" class="tab-panel hidden" data-panel="saved" role="tabpanel" aria-labelledby="tabSaved">
+        <div class="section">
+          <div class="section-heading">
+            <h2>Favourite stations</h2>
+            <span class="section-note">Saved on this device</span>
+          </div>
+          <div id="favourites" class="fav-list"></div>
+        </div>
+        <div class="data-note">
+          <span aria-hidden="true">★</span>
+          <span>Add a station from the Arrivals tab for one-tap access next time you visit.</span>
+        </div>
+      </section>
     </div>
   </aside>
 
-  <div id="floatingActions">
-    <button id="locateMe" class="glass">Locate me</button>
-    <button id="fitLondon" class="glass">Fit London</button>
-    <button id="togglePanel" class="glass">Hide panel</button>
-  </div>
+  <nav id="floatingActions" aria-label="Map controls">
+    <button type="button" id="locateMe" class="glass map-action" title="Show my location" aria-label="Show my location">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path><circle cx="12" cy="12" r="7"></circle></svg>
+    </button>
+    <button type="button" id="fitLondon" class="glass map-action" title="Fit the full Tube network" aria-label="Fit the full Tube network">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path></svg>
+    </button>
+    <button type="button" id="togglePanel" class="glass map-action" title="Hide controls" aria-label="Hide controls" aria-pressed="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg>
+    </button>
+  </nav>
 
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
 </div>
 
 <script>
@@ -566,7 +1507,7 @@
     { id: "central", name: "Central", color: "#E32017" },
     { id: "circle", name: "Circle", color: "#FFD300", text: "#111827" },
     { id: "district", name: "District", color: "#00782A" },
-    { id: "hammersmith-city", name: "Hammersmith & City", color: "#F3A9BB", text: "#111827" },
+    { id: "hammersmith-city", name: "Hammersmith & City", shortName: "H'smith & City", color: "#F3A9BB", text: "#111827" },
     { id: "jubilee", name: "Jubilee", color: "#A0A5A9", text: "#111827" },
     { id: "metropolitan", name: "Metropolitan", color: "#9B0056" },
     { id: "northern", name: "Northern", color: "#000000" },
@@ -577,6 +1518,17 @@
 
   const byLine = Object.fromEntries(TUBE_LINES.map(l => [l.id, l]));
 
+  function readPreference(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? fallback : value;
+    } catch {
+      return fallback;
+    }
+  }
+
+  const savedTrackMode = readPreference("tubeTrackMode", "single");
+
   const state = {
     statuses: new Map(),
     stations: new Map(),
@@ -584,16 +1536,22 @@
     lineLayers: new Map(),
     routeSequences: new Map(),
     trains: new Map(),
-    trackMode: localStorage.getItem("tubeTrackMode") || "single",
-    stationsVisible: localStorage.getItem("tubeStationsVisible") !== "false",
+    trackMode: ["single", "all"].includes(savedTrackMode) ? savedTrackMode : "single",
+    stationsVisible: readPreference("tubeStationsVisible", "true") !== "false",
     activeLiveLine: null,
     liveTimer: null,
     arrivalsTimer: null,
+    arrivalRequestToken: 0,
     animationFrame: null,
+    lastAnimationAt: 0,
     liveRefreshBusy: false,
     selectedStation: null,
     selectedMarker: null,
     drawnLines: new Set(),
+    lineLoads: new Map(),
+    networkPromise: null,
+    activeTab: "network",
+    userMarker: null,
     busy: false
   };
 
@@ -605,12 +1563,18 @@
     minZoom: 8
   }).setView([51.5074, -0.1278], 11);
 
-  L.control.zoom({ position: "bottomright" }).addTo(map);
+  L.control.zoom({ position: "topright" }).addTo(map);
+
+  const darkStreetLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    className: "map-tiles-dark",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
 
   const streetLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  });
 
   const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 19,
@@ -618,13 +1582,14 @@
   });
 
   const baseMaps = {
-    "Street map": streetLayer,
+    "Dark street map": darkStreetLayer,
+    "Light street map": streetLayer,
     "Satellite": satelliteLayer
   };
 
   L.control.layers(baseMaps, null, {
-    position: "bottomleft",
-    collapsed: false
+    position: "bottomright",
+    collapsed: true
   }).addTo(map);
 
   const routePane = map.createPane("routes");
@@ -641,7 +1606,7 @@
   function toast(message, ms = 3600) {
     const el = $("toast");
     el.textContent = message;
-    el.style.display = "block";
+    el.style.display = "flex";
     clearTimeout(toast._timer);
     toast._timer = setTimeout(() => { el.style.display = "none"; }, ms);
   }
@@ -695,12 +1660,32 @@
     }
   }
 
+  function writePreference(key, value) {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch {
+      // Preferences are optional; the tracker still works when storage is blocked.
+    }
+  }
+
   function lineStatusClass(text) {
     const t = String(text || "").toLowerCase();
     if (t.includes("good")) return "good";
     if (t.includes("minor") || t.includes("part") || t.includes("reduced")) return "warn";
     if (t.includes("severe") || t.includes("suspended") || t.includes("closed") || t.includes("special")) return "bad";
     return "";
+  }
+
+  function shortStatusLabel(text) {
+    const value = String(text || "");
+    const lower = value.toLowerCase();
+    if (lower.includes("good")) return "Good";
+    if (lower.includes("minor")) return "Minor";
+    if (lower.includes("severe")) return "Severe";
+    if (lower.includes("part closure")) return "Part closed";
+    if (lower.includes("suspended")) return "Suspended";
+    if (lower.includes("closed")) return "Closed";
+    return value.replace(/ service$/i, "") || "Unknown";
   }
 
   function renderLineGrid() {
@@ -711,18 +1696,75 @@
       const status = state.statuses.get(line.id);
       const statusText = status?.label || "Status…";
       const btn = document.createElement("button");
-      btn.className = "line-btn";
-      btn.title = `Draw ${line.name} line and load live prediction dots`;
+      btn.type = "button";
+      btn.className = `line-btn${state.activeLiveLine === line.id ? " active" : ""}`;
+      btn.style.setProperty("--line-colour", line.color);
+      btn.dataset.lineId = line.id;
+      btn.setAttribute("aria-pressed", String(state.activeLiveLine === line.id));
+      btn.title = status?.reason || `${line.name}: ${statusText}. Select to focus and track this line.`;
+      btn.setAttribute("aria-label", `${line.name}: ${statusText}`);
       btn.innerHTML = `
         <span class="line-left">
           <span class="swatch" style="background:${line.color};"></span>
-          <span class="line-name">${line.name}</span>
+          <span class="line-name">${escapeHtml(line.shortName || line.name)}</span>
         </span>
-        <span class="status-pill ${lineStatusClass(statusText)}">${escapeHtml(statusText)}</span>
+        <span class="status-pill ${lineStatusClass(statusText)}">${escapeHtml(shortStatusLabel(statusText))}</span>
       `;
       btn.addEventListener("click", () => selectLine(line.id));
       grid.appendChild(btn);
     });
+
+    renderServiceSummary();
+  }
+
+  function renderServiceSummary(errorMessage = "") {
+    const summary = $("serviceSummary");
+    if (!summary) return;
+
+    const known = TUBE_LINES
+      .map(line => ({ line, status: state.statuses.get(line.id) }))
+      .filter(item => item.status);
+
+    if (errorMessage) {
+      summary.classList.add("warn-state");
+      summary.innerHTML = `
+        <div class="summary-icon" aria-hidden="true">!</div>
+        <div>
+          <p class="summary-title">Status temporarily unavailable</p>
+          <p class="summary-copy">The map still works. TfL status will retry automatically.</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (!known.length) return;
+
+    const affected = known.filter(({ status }) => {
+      const cls = lineStatusClass(status.label);
+      return cls === "warn" || cls === "bad";
+    });
+
+    if (!affected.length) {
+      summary.classList.remove("warn-state");
+      summary.innerHTML = `
+        <div class="summary-icon" aria-hidden="true">✓</div>
+        <div>
+          <p class="summary-title">Good service across the network</p>
+          <p class="summary-copy">TfL reports no disruption on all ${known.length} Tube lines.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const names = affected.map(({ line }) => line.name).join(", ");
+    summary.classList.add("warn-state");
+    summary.innerHTML = `
+      <div class="summary-icon" aria-hidden="true">!</div>
+      <div>
+        <p class="summary-title">${affected.length} ${affected.length === 1 ? "line has" : "lines have"} disruption</p>
+        <p class="summary-copy">${escapeHtml(names)}</p>
+      </div>
+    `;
   }
 
   async function loadStatuses() {
@@ -739,12 +1781,12 @@
       }
 
       renderLineGrid();
-      setUpdated(`Live TfL status loaded ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+      setUpdated(`Updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`);
     } catch (err) {
       console.error(err);
-      setUpdated("Could not load TfL status. The anonymous TfL API request failed.");
-      toast(err.message);
+      setUpdated("TfL status unavailable");
       renderLineGrid();
+      renderServiceSummary(err.message);
     }
   }
 
@@ -896,18 +1938,26 @@
 
   function drawStations() {
     stationLayer.clearLayers();
+    state.markers.clear();
+    state.selectedMarker = null;
 
     for (const station of state.stations.values()) {
+      const isSelected = state.selectedStation?.id === station.id;
       const marker = L.marker([station.lat, station.lon], {
         pane: "stations",
-        icon: makeStationIcon(false),
+        icon: makeStationIcon(isSelected),
         title: station.name
       });
 
       marker.on("click", () => selectStation(station.id, { fly: false }));
       marker.bindTooltip(station.name, { direction: "top", opacity: 0.92 });
+      marker.bindPopup(`
+        <strong>${escapeHtml(station.name)}</strong><br>
+        <span style="color:#9db2c9">Select for live arrivals</span>
+      `);
 
       state.markers.set(station.id, marker);
+      if (isSelected) state.selectedMarker = marker;
       marker.addTo(stationLayer);
     }
 
@@ -918,8 +1968,8 @@
     return L.divIcon({
       className: "",
       html: `<div class="station-marker ${selected ? "selected" : ""}"></div>`,
-      iconSize: selected ? [20, 20] : [14, 14],
-      iconAnchor: selected ? [10, 10] : [7, 7]
+      iconSize: selected ? [21, 21] : [13, 13],
+      iconAnchor: selected ? [10.5, 10.5] : [6.5, 6.5]
     });
   }
 
@@ -942,6 +1992,7 @@
 
   function drawRoutes(seq, lineId) {
     const line = byLine[lineId];
+    const routeColour = visualLineColor(lineId);
     const paths = parseLineStrings(seq.lineStrings);
     const group = L.featureGroup();
 
@@ -954,23 +2005,23 @@
 
         L.polyline(path, {
           pane: "routes",
-          color: line.color,
-          weight: 6,
-          opacity: 0.86,
-          smoothFactor: 1.5,
-          lineJoin: "round",
-          lineCap: "round"
-        }).bindTooltip(line.name).addTo(group);
-
-        L.polyline(path, {
-          pane: "routes",
-          color: "#ffffff",
-          weight: 2,
-          opacity: 0.38,
+          color: "#05101b",
+          weight: 9,
+          opacity: 0.72,
           smoothFactor: 1.5,
           lineJoin: "round",
           lineCap: "round"
         }).addTo(group);
+
+        L.polyline(path, {
+          pane: "routes",
+          color: routeColour,
+          weight: 5.5,
+          opacity: 0.94,
+          smoothFactor: 1.5,
+          lineJoin: "round",
+          lineCap: "round"
+        }).bindTooltip(line.name).addTo(group);
       }
     } else {
       // Fallback: draw an approximate route by joining station sequence points.
@@ -981,7 +2032,7 @@
         if (pts.length > 1) {
           L.polyline(pts, {
             pane: "routes",
-            color: line.color,
+            color: routeColour,
             weight: 5,
             opacity: 0.72,
             smoothFactor: 1.2
@@ -994,23 +2045,42 @@
     state.lineLayers.set(lineId, group);
   }
 
-  async function ensureLineDrawn(lineId) {
-    if (state.drawnLines.has(lineId)) return;
-    const seq = await loadRouteSequence(lineId);
-    drawRoutes(seq, lineId);
-    collectStations(seq, lineId);
-    drawStations();
-    state.drawnLines.add(lineId);
+  async function ensureLineDrawn(lineId, options = {}) {
+    if (!state.drawnLines.has(lineId)) {
+      let linePromise = state.lineLoads.get(lineId);
+
+      if (!linePromise) {
+        linePromise = (async () => {
+          const seq = await loadRouteSequence(lineId);
+          if (!state.drawnLines.has(lineId)) {
+            drawRoutes(seq, lineId);
+            collectStations(seq, lineId);
+            state.drawnLines.add(lineId);
+          }
+        })();
+        state.lineLoads.set(lineId, linePromise);
+      }
+
+      try {
+        await linePromise;
+      } finally {
+        if (state.lineLoads.get(lineId) === linePromise) state.lineLoads.delete(lineId);
+      }
+    }
+
+    if (options.redrawStations !== false) drawStations();
   }
 
   async function selectLine(lineId) {
     try {
       state.activeLiveLine = lineId;
-      toast(`Loading ${byLine[lineId]?.name || lineId} line…`);
+      renderLineGrid();
+      toast(`Loading ${byLine[lineId]?.name || lineId}…`);
       await ensureLineDrawn(lineId);
 
       if (state.trackMode === "all") {
-        await startAllLineTracking({ keepMapView: true });
+        if (!state.trains.size) await startAllLineTracking({ keepMapView: true });
+        else toast(`${byLine[lineId]?.name || lineId} focused. All-line tracking is still active.`);
       } else {
         await loadLiveLine(lineId);
       }
@@ -1024,26 +2094,65 @@
   }
 
   async function ensureAllLinesDrawn() {
-    for (const line of TUBE_LINES) {
-      await ensureLineDrawn(line.id);
+    if (state.networkPromise) return state.networkPromise;
+
+    state.networkPromise = (async () => {
+      let completed = state.drawnLines.size;
+      const progress = $("networkProgress");
+      const tasks = TUBE_LINES.map(line =>
+        ensureLineDrawn(line.id, { redrawStations: false })
+          .finally(() => {
+            completed += 1;
+            if (progress) progress.textContent = `${Math.min(completed, TUBE_LINES.length)}/${TUBE_LINES.length} routes`;
+          })
+      );
+
+      const results = await Promise.allSettled(tasks);
+      const failures = results.filter(result => result.status === "rejected");
+
+      drawStations();
+      renderSearchResults($("stationSearch")?.value || "");
+      if (progress) progress.textContent = failures.length ? `${TUBE_LINES.length - failures.length}/${TUBE_LINES.length} routes` : "Network ready";
+
+      if (failures.length === TUBE_LINES.length) throw failures[0].reason;
+      if (failures.length) toast(`${failures.length} route${failures.length === 1 ? "" : "s"} could not be loaded. The rest of the map is ready.`, 5200);
+    })();
+
+    try {
+      return await state.networkPromise;
+    } finally {
+      state.networkPromise = null;
     }
   }
 
   async function drawAllLines() {
     if (state.busy) return;
     state.busy = true;
-    $("drawAll").textContent = "Drawing…";
+    $("drawAll").textContent = "Loading…";
+    $("drawAll").disabled = true;
     try {
       await ensureAllLinesDrawn();
       fitLondon();
-      toast("All Tube lines drawn. Use “All routes” to show trains on every route, or “One route” then click a line.");
+      toast("Full Tube network fitted to the map.");
     } catch (err) {
       console.error(err);
       toast(err.message, 5200);
     } finally {
       state.busy = false;
-      $("drawAll").textContent = "Draw all lines";
+      $("drawAll").disabled = false;
+      $("drawAll").textContent = "Fit full network";
     }
+  }
+
+  function fitOptions(maxZoom) {
+    const panel = $("sidebar");
+    const panelVisible = panel && !panel.classList.contains("hidden");
+    const mobile = window.matchMedia("(max-width: 700px)").matches;
+    return {
+      paddingTopLeft: [!mobile && panelVisible ? 438 : 24, 88],
+      paddingBottomRight: [70, mobile && panelVisible ? panel.offsetHeight + 18 : 34],
+      maxZoom
+    };
   }
 
   function fitLayerGroupSafely(group) {
@@ -1055,7 +2164,7 @@
 
       const bounds = group.getBounds();
       if (bounds && bounds.isValid && bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 13 });
+        map.fitBounds(bounds, fitOptions(13));
       } else {
         fitLondon();
       }
@@ -1067,32 +2176,50 @@
 
   function fitLondon() {
     const bounds = L.latLngBounds([[51.27, -0.55], [51.72, 0.33]]);
-    map.fitBounds(bounds, { padding: [20, 20] });
+    map.fitBounds(bounds, fitOptions(12));
   }
 
   function stationLinesText(station) {
     return Array.from(station.lines.values()).sort().join(", ");
   }
 
+  function visualLineColor(lineId) {
+    return lineId === "northern" ? "#e6ebef" : (byLine[lineId]?.color || "#42b8f4");
+  }
+
+  function stationLineChips(station) {
+    return Array.from(station.lines.keys())
+      .sort((a, b) => (byLine[a]?.name || a).localeCompare(byLine[b]?.name || b))
+      .map(id => `
+        <span class="line-chip">
+          <span class="line-chip-dot" style="background:${byLine[id]?.color || "#42b8f4"}"></span>
+          ${escapeHtml(byLine[id]?.name || id)}
+        </span>
+      `)
+      .join("");
+  }
+
   function renderStationCard(station) {
     const favs = getFavourites();
     const isFav = favs.includes(station.id);
-    const statusBits = Array.from(station.lines.keys())
+    const disruptionBits = Array.from(station.lines.keys())
       .map(id => {
         const st = state.statuses.get(id);
-        if (!st) return null;
+        if (!st || lineStatusClass(st.label) === "good") return null;
         return `${byLine[id]?.name || id}: ${st.label}`;
       })
       .filter(Boolean)
       .join(" · ");
 
+    $("selectedStation").className = "station-card";
     $("selectedStation").innerHTML = `
-      <p class="row-title">${escapeHtml(station.name)}</p>
-      <p class="row-sub">${escapeHtml(stationLinesText(station) || "Tube station")}</p>
-      ${statusBits ? `<p class="row-sub">${escapeHtml(statusBits)}</p>` : ""}
+      <p class="station-card-title">${escapeHtml(station.name)}</p>
+      <p class="row-sub">London Underground station</p>
+      <div class="line-chips">${stationLineChips(station)}</div>
+      ${disruptionBits ? `<p class="row-sub warn" style="margin-top:9px">${escapeHtml(disruptionBits)}</p>` : ""}
       <div class="small-actions">
-        <button id="refreshArrivals" class="primary">Refresh arrivals</button>
-        <button id="toggleFavourite">${isFav ? "Remove favourite" : "Add favourite"}</button>
+        <button type="button" id="refreshArrivals" class="primary">Refresh arrivals</button>
+        <button type="button" id="toggleFavourite">${isFav ? "★ Saved" : "☆ Add to saved"}</button>
       </div>
     `;
 
@@ -1109,11 +2236,15 @@
     }
 
     state.selectedStation = station;
+    setActiveTab("arrivals");
+    closeSearch();
     const marker = state.markers.get(stationId);
     if (marker) {
       marker.setIcon(makeStationIcon(true));
       state.selectedMarker = marker;
-      if (opts.fly !== false) map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 14), { duration: 0.65 });
+      if (opts.fly !== false) map.flyTo(marker.getLatLng(), Math.max(map.getZoom(), 14), {
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 0.65
+      });
       marker.openPopup();
     }
 
@@ -1129,16 +2260,22 @@
   async function loadStationArrivals(stationId, opts = {}) {
     const station = state.stations.get(stationId);
     if (!station) return;
-    if (!opts.quiet) $("arrivals").innerHTML = `<div class="info-box"><p class="row-sub">Loading arrivals for ${escapeHtml(station.name)}…</p></div>`;
+    const requestToken = ++state.arrivalRequestToken;
+    if (!opts.quiet) {
+      $("arrivalsUpdated").textContent = "Updating…";
+      $("arrivals").innerHTML = `<div class="info-box"><p class="row-sub">Loading arrivals for ${escapeHtml(station.name)}…</p></div>`;
+    }
 
     try {
       const data = await tflFetch(`StopPoint/${stationId}/Arrivals`);
+      if (requestToken !== state.arrivalRequestToken || state.selectedStation?.id !== stationId) return;
       const tubeArrivals = (data || [])
         .filter(a => station.lines.has(a.lineId) || byLine[a.lineId])
         .sort((a, b) => Number(a.timeToStation || 0) - Number(b.timeToStation || 0))
         .slice(0, 18);
 
       renderArrivals(tubeArrivals);
+      $("arrivalsUpdated").textContent = `Updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
       const marker = state.markers.get(stationId);
       if (marker) {
         marker.bindPopup(`
@@ -1147,8 +2284,10 @@
         `);
       }
     } catch (err) {
+      if (requestToken !== state.arrivalRequestToken) return;
       console.error(err);
-      $("arrivals").innerHTML = `<div class="info-box"><p class="row-sub bad">${escapeHtml(err.message)}</p></div>`;
+      $("arrivalsUpdated").textContent = "Update failed";
+      $("arrivals").innerHTML = `<div class="info-box"><p class="row-sub bad">Arrivals are temporarily unavailable. TfL will be tried again automatically.</p></div>`;
     }
   }
 
@@ -1162,12 +2301,15 @@
 
     box.innerHTML = "";
     for (const a of arrivals) {
-      const mins = Math.max(0, Math.round(Number(a.timeToStation || 0) / 60));
+      const seconds = Math.max(0, Number(a.timeToStation || 0));
+      const mins = Math.max(1, Math.ceil(seconds / 60));
+      const due = seconds <= 30;
       const line = byLine[a.lineId] || { name: a.lineName || a.lineId, color: "#38bdf8" };
       const row = document.createElement("div");
       row.className = "arrival-row";
+      row.style.setProperty("--arrival-colour", visualLineColor(a.lineId));
       row.innerHTML = `
-        <div class="eta" style="color:${line.color}">${mins}<span>min</span></div>
+        <div class="eta${due ? " due" : ""}" style="color:${visualLineColor(a.lineId)}">${due ? "Due" : mins}${due ? "" : "<span>min</span>"}</div>
         <div>
           <p class="row-title">${escapeHtml(line.name)} to ${escapeHtml(a.destinationName || "Unknown destination")}</p>
           <p class="row-sub">${escapeHtml(a.platformName || a.direction || "")}${a.currentLocation ? " · " + escapeHtml(a.currentLocation) : ""}</p>
@@ -1179,7 +2321,7 @@
 
   async function loadLiveLine(lineId) {
     state.trackMode = "single";
-    localStorage.setItem("tubeTrackMode", state.trackMode);
+    writePreference("tubeTrackMode", state.trackMode);
     state.activeLiveLine = lineId;
     updateTrackingControls();
     clearLiveTrains();
@@ -1199,7 +2341,7 @@
 
   async function startSingleLineTracking() {
     state.trackMode = "single";
-    localStorage.setItem("tubeTrackMode", state.trackMode);
+    writePreference("tubeTrackMode", state.trackMode);
     updateTrackingControls();
     clearInterval(state.liveTimer);
     clearLiveTrains();
@@ -1207,14 +2349,14 @@
     if (state.activeLiveLine) {
       await loadLiveLine(state.activeLiveLine);
     } else {
-      toast("One-route mode selected. Click a Tube line to track that route.");
+      toast("Selected-line mode is ready. Choose a Tube line above.");
     }
   }
 
   async function startAllLineTracking(options = {}) {
     if (state.busy && !options.keepMapView) return;
     state.trackMode = "all";
-    localStorage.setItem("tubeTrackMode", state.trackMode);
+    writePreference("tubeTrackMode", state.trackMode);
     updateTrackingControls();
     clearInterval(state.liveTimer);
 
@@ -1223,7 +2365,10 @@
 
       const oldBusy = state.busy;
       state.busy = true;
-      if ($("trackAll")) $("trackAll").textContent = "Loading all…";
+      if ($("trackAll")) {
+        $("trackAll").textContent = "Loading…";
+        $("trackAll").disabled = true;
+      }
 
       await ensureAllLinesDrawn();
       await refreshAllLiveLines(false);
@@ -1233,14 +2378,17 @@
       }, ARRIVALS_REFRESH_MS);
 
       if (!options.keepMapView) fitLondon();
-      toast("Tracking trains on all Tube routes. This uses more TfL API requests than one-route mode.");
+      toast("Live predictions are now shown across all Tube lines.");
       state.busy = oldBusy;
     } catch (err) {
       console.error(err);
       toast(`Could not start all-route tracking: ${err.message}`, 6200);
       state.busy = false;
     } finally {
-      if ($("trackAll")) $("trackAll").textContent = "All routes";
+      if ($("trackAll")) {
+        $("trackAll").textContent = "All lines";
+        $("trackAll").disabled = false;
+      }
       updateTrackingControls();
     }
   }
@@ -1275,7 +2423,9 @@
         const results = await Promise.allSettled(
           lineIds.map(id => tflFetch(`Line/${id}/Arrivals`))
         );
-        data = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+        const successful = results.filter(result => result.status === "fulfilled");
+        if (!successful.length) throw bulkErr;
+        data = successful.flatMap(result => result.value);
       }
 
       const grouped = new Map();
@@ -1306,6 +2456,10 @@
       trainLayer.removeLayer(item.marker);
     }
     state.trains.clear();
+    if (state.animationFrame) cancelAnimationFrame(state.animationFrame);
+    state.animationFrame = null;
+    state.lastAnimationAt = 0;
+    updateTrackingControls();
   }
 
   function renderLivePredictions(lineId, arrivals, quiet = false) {
@@ -1320,7 +2474,9 @@
       }
     }
 
-    const perLineLimit = state.trackMode === "all" ? 70 : 90;
+    const perLineLimit = state.trackMode === "all"
+      ? (window.matchMedia("(max-width: 700px)").matches ? 36 : 55)
+      : 90;
     const chosen = Array.from(byVehicle.values())
       .filter(a => Number.isFinite(Number(a.timeToStation)))
       .sort((a, b) => Number(a.timeToStation) - Number(b.timeToStation))
@@ -1432,21 +2588,29 @@
   }
 
   function startAnimationLoop() {
-    if (state.animationFrame) return;
-    const tick = () => {
-      animateTrains();
-      state.animationFrame = requestAnimationFrame(tick);
+    if (state.animationFrame || !state.trains.size) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const frameInterval = reducedMotion ? 1000 : (window.matchMedia("(max-width: 700px)").matches ? 50 : 33);
+    const tick = timestamp => {
+      state.animationFrame = null;
+      if (!state.lastAnimationAt || timestamp - state.lastAnimationAt >= frameInterval) {
+        animateTrains();
+        state.lastAnimationAt = timestamp;
+      }
+      if (state.trains.size) state.animationFrame = requestAnimationFrame(tick);
     };
     state.animationFrame = requestAnimationFrame(tick);
   }
 
   function animateTrains() {
     const now = Date.now();
+    let removedTrain = false;
 
     for (const [key, item] of state.trains.entries()) {
       if (now - item.lastSeenAt > ARRIVALS_REFRESH_MS * 3.5) {
         trainLayer.removeLayer(item.marker);
         state.trains.delete(key);
+        removedTrain = true;
         continue;
       }
 
@@ -1458,7 +2622,7 @@
       if (Number.isFinite(liveBearing)) updateTrainIconDirection(item, liveBearing);
     }
 
-    updateTrackingControls();
+    if (removedTrain) updateTrackingControls();
   }
 
   function updateTrainIconDirection(item, bearing) {
@@ -1596,17 +2760,23 @@
   }
 
   function setFavourites(ids) {
-    localStorage.setItem("tubeFavs", JSON.stringify(Array.from(new Set(ids))));
+    try {
+      localStorage.setItem("tubeFavs", JSON.stringify(Array.from(new Set(ids))));
+    } catch {
+      toast("Saved stations are unavailable because browser storage is blocked.");
+    }
   }
 
   function toggleFavourite(stationId) {
     const favs = getFavourites();
     const i = favs.indexOf(stationId);
-    if (i >= 0) favs.splice(i, 1);
+    const removing = i >= 0;
+    if (removing) favs.splice(i, 1);
     else favs.push(stationId);
     setFavourites(favs);
     if (state.selectedStation?.id === stationId) renderStationCard(state.selectedStation);
     renderFavourites();
+    toast(removing ? "Station removed from saved." : "Station saved on this device.");
   }
 
   function renderFavourites() {
@@ -1614,13 +2784,20 @@
     const favs = getFavourites().map(id => state.stations.get(id)).filter(Boolean);
 
     if (!favs.length) {
-      favBox.innerHTML = `<div class="info-box"><p class="row-sub">No favourites yet. Select a station and press “Add favourite”.</p></div>`;
+      favBox.innerHTML = `
+        <div class="info-box empty-state">
+          <div class="empty-icon" aria-hidden="true">☆</div>
+          <p class="row-title">Nothing saved yet</p>
+          <p class="row-sub">Select a station, then choose “Add to saved”.</p>
+        </div>
+      `;
       return;
     }
 
     favBox.innerHTML = "";
     for (const station of favs.sort((a, b) => a.name.localeCompare(b.name))) {
-      const row = document.createElement("div");
+      const row = document.createElement("button");
+      row.type = "button";
       row.className = "fav-row";
       row.innerHTML = `
         <p class="row-title">${escapeHtml(station.name)}</p>
@@ -1631,36 +2808,95 @@
     }
   }
 
+  function normaliseSearch(value) {
+    return String(value || "")
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function getSearchMatches(query) {
+    const q = normaliseSearch(query);
+    if (!q) return [];
+
+    return Array.from(state.stations.values())
+      .map(station => {
+        const name = normaliseSearch(station.name);
+        let score = 99;
+        if (name === q) score = 0;
+        else if (name.startsWith(q)) score = 1;
+        else if (name.split(" ").some(word => word.startsWith(q))) score = 2;
+        else if (name.includes(q)) score = 3;
+        return { station, score };
+      })
+      .filter(result => result.score < 99)
+      .sort((a, b) => a.score - b.score || a.station.name.localeCompare(b.station.name))
+      .slice(0, 10)
+      .map(result => result.station);
+  }
+
   function renderSearchResults(query = "") {
     const box = $("searchResults");
-    const q = query.trim().toLowerCase();
+    const q = normaliseSearch(query);
 
     if (!q) {
-      box.innerHTML = `<div class="info-box"><p class="row-sub">Search for a station to jump to it.</p></div>`;
-      return;
+      box.innerHTML = "";
+      box.classList.add("hidden");
+      return [];
     }
 
-    const results = Array.from(state.stations.values())
-      .filter(station => station.name.toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .slice(0, 20);
+    const results = getSearchMatches(q);
+    box.classList.remove("hidden");
 
     if (!results.length) {
-      box.innerHTML = `<div class="info-box"><p class="row-sub">No loaded stations match. Press “Draw all lines” first if the map has not finished loading routes.</p></div>`;
-      return;
+      box.innerHTML = `<div class="info-box"><p class="row-sub">${state.networkPromise ? "The network is still loading. Try again in a moment." : "No Tube stations match that search."}</p></div>`;
+      return [];
     }
 
     box.innerHTML = "";
     for (const station of results) {
-      const row = document.createElement("div");
-      row.className = "station-row";
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "search-result";
       row.innerHTML = `
-        <p class="row-title">${escapeHtml(station.name)}</p>
-        <p class="row-sub">${escapeHtml(stationLinesText(station))}</p>
+        <span>
+          <span class="row-title" style="display:block">${escapeHtml(station.name)}</span>
+          <span class="row-sub" style="display:block">${escapeHtml(stationLinesText(station))}</span>
+        </span>
+        <span class="result-lines" aria-hidden="true">
+          ${Array.from(station.lines.keys()).slice(0, 4).map(id => `<span class="mini-line" style="background:${byLine[id]?.color || "#42b8f4"}"></span>`).join("")}
+        </span>
       `;
       row.addEventListener("click", () => selectStation(station.id));
       box.appendChild(row);
     }
+
+    return results;
+  }
+
+  function closeSearch(clear = false) {
+    const input = $("stationSearch");
+    if (clear && input) input.value = "";
+    $("searchResults")?.classList.add("hidden");
+  }
+
+  function setActiveTab(tabName) {
+    const validTab = ["network", "arrivals", "saved"].includes(tabName) ? tabName : "network";
+    state.activeTab = validTab;
+
+    document.querySelectorAll("[data-tab]").forEach(button => {
+      const active = button.dataset.tab === validTab;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+
+    document.querySelectorAll("[data-panel]").forEach(panel => {
+      panel.classList.toggle("hidden", panel.dataset.panel !== validTab);
+    });
+
+    $("content")?.scrollTo({ top: 0, behavior: "auto" });
   }
 
   function escapeHtml(value) {
@@ -1680,24 +2916,37 @@
 
     if (single) single.classList.toggle("active", state.trackMode === "single");
     if (all) all.classList.toggle("active", state.trackMode === "all");
+    if (single) single.setAttribute("aria-pressed", String(state.trackMode === "single"));
+    if (all) all.setAttribute("aria-pressed", String(state.trackMode === "all"));
 
-    if (stationToggle) stationToggle.textContent = state.stationsVisible ? "Hide stations" : "Show stations";
+    if (stationToggle) {
+      stationToggle.textContent = state.stationsVisible ? "Hide stations" : "Show stations";
+      stationToggle.setAttribute("aria-pressed", String(state.stationsVisible));
+    }
+
+    if ($("trainCount")) $("trainCount").textContent = String(state.trains.size);
+
+    document.querySelectorAll(".line-btn").forEach(button => {
+      const active = button.dataset.lineId === state.activeLiveLine;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
 
     if (status) {
       const trainCount = state.trains.size;
       if (state.trackMode === "all") {
-        status.textContent = `All-route mode: showing ${trainCount} animated train predictions across Tube lines.`;
+        status.textContent = trainCount ? `Showing ${trainCount} predictions across all Tube lines.` : "All-line mode is ready. Press All lines to load predictions.";
       } else if (state.activeLiveLine) {
-        status.textContent = `One-route mode: tracking ${byLine[state.activeLiveLine]?.name || state.activeLiveLine} only (${trainCount} train predictions).`;
+        status.textContent = trainCount ? `${byLine[state.activeLiveLine]?.name || state.activeLiveLine}: ${trainCount} live train predictions.` : `${byLine[state.activeLiveLine]?.name || state.activeLiveLine} selected. Loading predictions…`;
       } else {
-        status.textContent = "One-route mode: click a line to track it.";
+        status.textContent = "Choose a line above to show its train predictions.";
       }
     }
   }
 
   function setStationsVisible(visible) {
     state.stationsVisible = Boolean(visible);
-    localStorage.setItem("tubeStationsVisible", String(state.stationsVisible));
+    writePreference("tubeStationsVisible", state.stationsVisible);
 
     if (state.stationsVisible) {
       if (!map.hasLayer(stationLayer)) stationLayer.addTo(map);
@@ -1714,6 +2963,46 @@
     setStationsVisible(!state.stationsVisible);
   }
 
+  function locateUser() {
+    const button = $("locateMe");
+    if (!navigator.geolocation) {
+      toast("Location is not supported in this browser.");
+      return;
+    }
+
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const latlng = [pos.coords.latitude, pos.coords.longitude];
+        if (state.userMarker) map.removeLayer(state.userMarker);
+        state.userMarker = L.marker(latlng, {
+          icon: L.divIcon({ className: "", html: '<div class="user-location-marker"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+          title: "Your approximate location",
+          zIndexOffset: 1000
+        }).addTo(map).bindPopup("Your approximate location");
+        map.flyTo(latlng, 14, { duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 0.7 });
+
+        let nearest = null;
+        for (const station of state.stations.values()) {
+          const metres = distanceMeters({ lat: latlng[0], lon: latlng[1] }, station);
+          if (!nearest || metres < nearest.metres) nearest = { station, metres };
+        }
+        toast(nearest && nearest.metres < 8000
+          ? `Location found. Nearest loaded station: ${nearest.station.name} (${nearest.metres < 1000 ? `${Math.round(nearest.metres)} m` : `${(nearest.metres / 1000).toFixed(1)} km`}).`
+          : "Location found.");
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+      },
+      err => {
+        toast(err.code === 1 ? "Location permission was not granted." : "Your location could not be found.");
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  }
+
   function wireEvents() {
     $("drawAll").addEventListener("click", drawAllLines);
     $("trackSingle").addEventListener("click", startSingleLineTracking);
@@ -1724,28 +3013,28 @@
       state.activeLiveLine = null;
       clearInterval(state.liveTimer);
       clearLiveTrains();
+      renderLineGrid();
       updateTrackingControls();
       toast("Live train predictions cleared.");
     });
 
     $("fitLondon").addEventListener("click", fitLondon);
 
-    $("locateMe").addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        toast("Geolocation is not supported in this browser.");
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        pos => map.flyTo([pos.coords.latitude, pos.coords.longitude], 14),
-        err => toast(err.message || "Could not get your location.")
-      );
-    });
+    $("locateMe").addEventListener("click", locateUser);
 
     $("togglePanel").addEventListener("click", () => {
       const sidebar = $("sidebar");
       sidebar.classList.toggle("hidden");
-      $("togglePanel").textContent = sidebar.classList.contains("hidden") ? "Show panel" : "Hide panel";
+      const hidden = sidebar.classList.contains("hidden");
+      $("app").classList.toggle("panel-hidden", hidden);
+      $("togglePanel").title = hidden ? "Show controls" : "Hide controls";
+      $("togglePanel").setAttribute("aria-label", hidden ? "Show controls" : "Hide controls");
+      $("togglePanel").setAttribute("aria-pressed", String(hidden));
       setTimeout(() => map.invalidateSize(), 180);
+    });
+
+    document.querySelectorAll("[data-tab]").forEach(button => {
+      button.addEventListener("click", () => setActiveTab(button.dataset.tab));
     });
 
     $("stationSearch").addEventListener("input", (e) => {
@@ -1753,17 +3042,36 @@
     });
 
     $("stationSearch").addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeSearch(true);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        $("searchResults")?.querySelector("button")?.focus();
+        return;
+      }
       if (e.key !== "Enter") return;
-      const q = e.target.value.trim().toLowerCase();
-      const first = Array.from(state.stations.values())
-        .filter(station => station.name.toLowerCase().includes(q))
-        .sort((a, b) => a.name.localeCompare(b.name))[0];
+      const first = getSearchMatches(e.target.value)[0];
       if (first) selectStation(first.id);
     });
 
     $("clearSearch").addEventListener("click", () => {
-      $("stationSearch").value = "";
-      renderSearchResults("");
+      closeSearch(true);
+      $("stationSearch").focus();
+    });
+
+    document.addEventListener("click", event => {
+      if (!event.target.closest(".search-shell")) closeSearch(false);
+    });
+
+    window.addEventListener("resize", () => map.invalidateSize());
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      loadStatuses();
+      if (state.trackMode === "all" && state.trains.size) refreshAllLiveLines(true);
+      else if (state.activeLiveLine && state.trains.size) refreshLiveLine(state.activeLiveLine);
     });
   }
 
@@ -1777,18 +3085,19 @@
     }
     fitLondon();
 
-    await loadStatuses();
+    const results = await Promise.allSettled([
+      loadStatuses(),
+      ensureAllLinesDrawn()
+    ]);
     setInterval(loadStatuses, STATUS_REFRESH_MS);
+    renderSearchResults("");
 
-    // Draw a default line immediately so the map isn't empty, then the user can draw all.
-    try {
-      await ensureLineDrawn("victoria");
-      await ensureLineDrawn("central");
-      renderSearchResults("");
-      toast("Map ready. Use “All routes” to track every Tube route, or “One route” then click a line.");
-    } catch (err) {
-      console.error(err);
-      toast(`Initial route load failed: ${err.message}`, 5200);
+    if (results[1].status === "fulfilled") {
+      fitLondon();
+      toast("Tube network ready. Choose a line for live trains or search for any station.");
+    } else {
+      console.error(results[1].reason);
+      toast("Some map data could not be loaded. Check your connection and try Fit full network.", 5200);
     }
   }
 
